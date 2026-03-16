@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/cao/Documents/GitHub/ai-agent-workflow/ai-agent-workflow-core/src/main/java/**)",
+      "Bash(dir \"C:\\\\Users\\\\cao\\\\Documents\\\\GitHub\\\\ai-agent-workflow\\\\ai-agent-workflow-core\\\\src\\\\main\\\\java\")",
+      "Bash(go mod:*)",
+      "Bash(go build:*)",
+      "Bash(go run:*)"
+    ]
+  }
+}
