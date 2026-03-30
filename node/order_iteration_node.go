@@ -30,28 +30,9 @@ func (n *OrderIterationNode) GetNodeGraph() *graph.NodeGraph {
 
 // Exec 执行节点 - 顺序处理每个迭代项
 func (n *OrderIterationNode) Exec(state *State) (value.NodeValue, error) {
-	if n.workflow == nil {
-		return nil, ErrIterationNodeWorkflowRequired
-	}
-
-	batchInputs, err := n.ExpandIterationInputs(state)
+	batchInputs, currentParentID, statusGroup, err := n.PrepareBatchInputs(state)
 	if err != nil {
 		return nil, err
-	}
-
-	sharedInput, err := n.ParseValuesFromWithError(state, n.ValuesFrom)
-	if err != nil {
-		return nil, err
-	}
-	for _, input := range batchInputs {
-		input.AddAllIFNULL(sharedInput)
-	}
-	// 构建父ID (复用共用方法)
-	currentParentID := n.BuildCurrentParentID(state)
-
-	statusGroup, ok := state.GetNodeStatus().(*graph.NodeStatusGroup)
-	if !ok {
-		statusGroup = graph.NewNodeStatusGroup(n.ID)
 	}
 	result, err := n.workflow.ExecBatchOrder(state.GetWorkflowContext(), statusGroup, currentParentID, batchInputs)
 	if err != nil {

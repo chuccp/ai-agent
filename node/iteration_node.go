@@ -78,29 +78,9 @@ func BuildIterParentID(parentID string, index int) string {
 
 // Exec 执行节点
 func (n *IterationNode) Exec(state *State) (value.NodeValue, error) {
-	if n.workflow == nil {
-		return nil, ErrIterationNodeWorkflowRequired
-	}
-
-	batchInputs, err := n.ExpandIterationInputs(state)
+	batchInputs, currentParentID, statusGroup, err := n.PrepareBatchInputs(state)
 	if err != nil {
 		return nil, err
-	}
-
-	sharedInput, err := n.ParseValuesFromWithError(state, n.ValuesFrom)
-	if err != nil {
-		return nil, err
-	}
-	for _, input := range batchInputs {
-		input.AddAllIFNULL(sharedInput)
-	}
-
-	// 构建父ID (复用共用方法)
-	currentParentID := n.BuildCurrentParentID(state)
-
-	statusGroup, ok := state.GetNodeStatus().(*graph.NodeStatusGroup)
-	if !ok {
-		statusGroup = graph.NewNodeStatusGroup(n.ID)
 	}
 
 	result, err := n.workflow.ExecBatch(state.GetWorkflowContext(), statusGroup, currentParentID, batchInputs)
@@ -113,6 +93,35 @@ func (n *IterationNode) Exec(state *State) (value.NodeValue, error) {
 	}
 
 	return result, nil
+}
+
+// PrepareBatchInputs 准备批处理输入（供 IterationNode 和 OrderIterationNode 复用）
+func (n *IterationNode) PrepareBatchInputs(state *State) ([]*value.ObjectValue, string, *graph.NodeStatusGroup, error) {
+	if n.workflow == nil {
+		return nil, "", nil, ErrIterationNodeWorkflowRequired
+	}
+
+	batchInputs, err := n.ExpandIterationInputs(state)
+	if err != nil {
+		return nil, "", nil, err
+	}
+
+	sharedInput, err := n.ParseValuesFromWithError(state, n.ValuesFrom)
+	if err != nil {
+		return nil, "", nil, err
+	}
+	for _, input := range batchInputs {
+		input.AddAllIFNULL(sharedInput)
+	}
+
+	currentParentID := n.BuildCurrentParentID(state)
+
+	statusGroup, ok := state.GetNodeStatus().(*graph.NodeStatusGroup)
+	if !ok {
+		statusGroup = graph.NewNodeStatusGroup(n.ID)
+	}
+
+	return batchInputs, currentParentID, statusGroup, nil
 }
 
 // ExpandIterationInputs 展开迭代输入（导出方法，供 OrderIterationNode 复用）
