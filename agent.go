@@ -346,8 +346,20 @@ func (e *AgentExecutor) ExecJSON(inputJSON string) (*Response, error) {
 // ExecSync 同步执行
 func (e *AgentExecutor) ExecSync(input *value.ObjectValue) *AsyncResult {
 	e.prepareInput(input)
-	resp, err := e.asyncCall.ExecSync()
-	return &AsyncResult{Response: resp, Error: err}
+	var asyncResult = &AsyncResult{}
+	er := e.pool0.WaitGO(func() error {
+		resp, err := e.asyncCall.ExecSync()
+		if err != nil {
+			return err
+		}
+		asyncResult.Response = resp
+		asyncResult.Error = err
+		return nil
+	})
+	if er != nil {
+		asyncResult.Error = er
+	}
+	return asyncResult
 }
 
 // Cancel 取消

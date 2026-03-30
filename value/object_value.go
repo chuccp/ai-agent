@@ -68,6 +68,22 @@ func (o *ObjectValue) GetString(key string) string {
 	}
 	return v.String()
 }
+func (o *ObjectValue) GetOrString(keys ...string) string {
+	for _, key := range keys {
+		v := o.Get(key)
+		if v != nil && !v.IsNull() {
+			if v.IsText() {
+				text := v.AsText().Text
+				if len(text) == 0 {
+					continue
+				}
+				return text
+			}
+			return v.String()
+		}
+	}
+	return ""
+}
 
 // GetUrlsValue 获取URL值
 func (o *ObjectValue) GetUrls(key string) *UrlsValue {
