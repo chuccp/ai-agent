@@ -43,8 +43,8 @@ func (n *OrderIterationNode) Exec(state *State) (value.NodeValue, error) {
 		return nil, ErrIterationNodeWorkflowRequired
 	}
 
-	// 展开迭代输入
-	batchInputs, err := n.expandIterationInputs(state)
+	// 展开迭代输入 (复用嵌入的 IterationNode 方法)
+	batchInputs, err := n.IterationNode.ExpandIterationInputs(state)
 	if err != nil {
 		return nil, err
 	}
@@ -94,49 +94,6 @@ func (n *OrderIterationNode) Exec(state *State) (value.NodeValue, error) {
 
 	state.SetStatusType(types.NodeStatusSucceeded)
 	return results, nil
-}
-
-// expandIterationInputs 展开迭代输入 (继承自 IterationNode)
-func (n *OrderIterationNode) expandIterationInputs(state *State) ([]*value.ObjectValue, error) {
-	iterationFrom := n.GetIterationFrom()
-	if len(iterationFrom) == 0 {
-		return nil, ErrIterationNodeIterationFromRequired
-	}
-
-	var inputs []*value.ObjectValue
-
-	for _, vf := range iterationFrom {
-		nodeValue := state.GetNodeValueFromValueFrom(vf)
-		if nodeValue == nil || !nodeValue.IsArray() {
-			return nil, ErrIterationNodeRequiresArrayInput
-		}
-
-		arr := nodeValue.AsArray()
-		if len(inputs) == 0 {
-			for i := 0; i < arr.Size(); i++ {
-				inputs = append(inputs, value.NewObjectValue())
-			}
-		}
-
-		if arr.Size() != len(inputs) {
-			return nil, ErrIterationNodeInconsistentArraySizes
-		}
-
-		for i := 0; i < arr.Size(); i++ {
-			target := inputs[i]
-			item := arr.Get(i)
-			if util.IsBlank(vf.Param) {
-				if !item.IsObject() {
-					return nil, ErrIterationNodeItemMustBeObject
-				}
-				target.AddAll(item.AsObject())
-			} else {
-				target.Put(vf.Param, item)
-			}
-		}
-	}
-
-	return inputs, nil
 }
 
 // buildOrderIterParentID 构建顺序迭代的父ID

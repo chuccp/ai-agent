@@ -62,7 +62,7 @@ func (n *IterationNode) Exec(state *State) (value.NodeValue, error) {
 		return nil, ErrIterationNodeWorkflowRequired
 	}
 
-	batchInputs, err := n.expandIterationInputs(state)
+	batchInputs, err := n.ExpandIterationInputs(state)
 	if err != nil {
 		return nil, err
 	}
@@ -98,8 +98,8 @@ func (n *IterationNode) Exec(state *State) (value.NodeValue, error) {
 	return result, nil
 }
 
-// expandIterationInputs 展开迭代输入
-func (n *IterationNode) expandIterationInputs(state *State) ([]*value.ObjectValue, error) {
+// ExpandIterationInputs 展开迭代输入（导出方法，供 OrderIterationNode 复用）
+func (n *IterationNode) ExpandIterationInputs(state *State) ([]*value.ObjectValue, error) {
 	if len(n.iterationFrom) == 0 {
 		return nil, ErrIterationNodeIterationFromRequired
 	}
