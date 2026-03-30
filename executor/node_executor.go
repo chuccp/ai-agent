@@ -302,7 +302,7 @@ func (e *NodeExecutor) executeLayer(layer []node.Node, ctx context.Context, pool
 	}
 	// 单节点直接执行
 	if len(layer) == 1 {
-		state, err := e.createAndRunNodeStateSafe(layer[0])
+		state, err := e.createAndRunNodeState(layer[0])
 		if err != nil {
 			return false, err
 		}
@@ -341,17 +341,18 @@ type executionResult struct {
 }
 
 // createAndRunNodeStateSafe 创建并运行节点状态（带panic恢复）
-func (e *NodeExecutor) createAndRunNodeStateSafe(n node.Node) (*node.State, error) {
-	var state *node.State
-	var err error
-	r := panics.Try(func() {
-		state, err = e.createAndRunNodeState(n)
-	})
-	if r != nil {
-		return nil, r.AsError()
-	}
-	return state, err
-}
+//
+//	func (e *NodeExecutor) createAndRunNodeStateSafe(n node.Node) (*node.State, error) {
+//		var state *node.State
+//		var err error
+//		r := panics.Try(func() {
+//			state, err = e.createAndRunNodeState(n)
+//		})
+//		if r != nil {
+//			return nil, r.AsError()
+//		}
+//		return state, err
+//	}
 func (e *NodeExecutor) getNodeStatus(nodeID string) graph.NodeStatusInterface {
 	e.mu.Lock()
 	defer e.mu.Unlock()
