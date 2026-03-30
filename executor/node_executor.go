@@ -1,7 +1,6 @@
 package executor
 
 import (
-	"context"
 	"sync"
 	"time"
 
@@ -57,6 +56,7 @@ func DefaultConfig(RootCachePath string, RelPath string) *Config {
 // Context 工作流上下文
 type Context struct {
 	rootValue    *value.ObjectValue
+	shareValue   *value.ArrayValue
 	nodeValues   map[string]value.NodeValue
 	parentID     string
 	cacheManager *cache.Manager
@@ -74,10 +74,12 @@ func NewContext(nodes []node.Node, rootValue *value.ObjectValue, config *Config,
 		rootValue: rootValue,
 		config:    config,
 	}
-
-	if config.RelPath != "" {
+	if config.RootCachePath != "" && config.RelPath != "" {
 		ctx.cacheManager = cache.NewManager(config.RelPath, true)
+	} else {
+		ctx.cacheManager = cache.NewManager("", false)
 	}
+	ctx.shareValue = value.NewArrayValue()
 	ctx.pool2 = pool2
 	ctx.init(nodes)
 	return ctx
@@ -99,7 +101,7 @@ func (c *Context) init(nodes []node.Node) {
 }
 
 // CreateChildContext 创建子上下文
-func (c *Context) CreateChildContext(nodes []node.Node, childRootValue *value.ObjectValue, childParentID string) node.WorkflowContext {
+func (c *Context) CreateChildContext(nodes []node.Node, childRootValue *value.ObjectValue, shareValue *value.ArrayValue, childParentID string) node.WorkflowContext {
 	ctx := &Context{
 		rootValue:    childRootValue,
 		cacheManager: c.cacheManager,
@@ -107,8 +109,12 @@ func (c *Context) CreateChildContext(nodes []node.Node, childRootValue *value.Ob
 		config:       c.config,
 		pool2:        c.pool2,
 	}
+	ctx.shareValue = shareValue
 	ctx.init(nodes)
 	return ctx
+}
+func (c *Context) GetShareValue() *value.ArrayValue {
+	return c.shareValue
 }
 
 // AddNodeValue 添加节点值
@@ -260,7 +266,7 @@ func (e *NodeExecutor) GetIndex() int {
 }
 
 // Exec 执行
-func (e *NodeExecutor) Exec(ctx context.Context, pool *pool2.GOPool) (value.NodeValue, error) {
+func (e *NodeExecutor) Exec(pool *pool2.GOPool) (value.NodeValue, error) {
 	endNode, err := e.GetEndNode()
 	if err != nil {
 		return nil, err
@@ -271,7 +277,7 @@ func (e *NodeExecutor) Exec(ctx context.Context, pool *pool2.GOPool) (value.Node
 	}
 
 	for _, layer := range layers {
-		fa, err := e.executeLayer(layer, ctx, pool)
+		fa, err := e.executeLayer(layer, pool)
 		if err != nil {
 			return nil, err
 		}
@@ -295,7 +301,7 @@ func (e *NodeExecutor) IsAllSucceeded() bool {
 
 // executeLayer 执行层级（使用goroutine并发执行，带panic恢复）
 // 返回值: (是否全部成功, 错误)
-func (e *NodeExecutor) executeLayer(layer []node.Node, ctx context.Context, pool2 *pool2.GOPool) (bool, error) {
+func (e *NodeExecutor) executeLayer(layer []node.Node, pool2 *pool2.GOPool) (bool, error) {
 	if len(layer) == 0 {
 		return true, nil
 	}

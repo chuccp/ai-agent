@@ -95,13 +95,22 @@ func (w *Workflow) Exec(ctx node.WorkflowContext) (value.NodeValue, error) {
 		return nil, errors.New("invalid context type for Workflow.Exec")
 	}
 	nodeExec := executor.NewNodeExecutor(0, w.nodes, execCtx)
-	return nodeExec.Exec(context.Background(), execCtx.GetPool())
+	return nodeExec.Exec(execCtx.GetPool())
 }
 
 // Execute 实现node.WorkflowInterface接口，用于IFNode等条件节点执行子工作流
 func (w *Workflow) Execute(ctx node.WorkflowContext, input *value.ObjectValue, parentID string) (value.NodeValue, error) {
-	childCtx := ctx.CreateChildContext(w.nodes, input, parentID)
+	childCtx := ctx.CreateChildContext(w.nodes, input, value.NewArrayValue(), parentID)
 	return w.Exec(childCtx)
+}
+func (w *Workflow) ExecBatchOrder(ctx node.WorkflowContext, statusGroup *graph.NodeStatusGroup, parentID string, inputs []*value.ObjectValue) (value.NodeValue, error) {
+	execCtx, ok := ctx.(*executor.Context)
+	if !ok {
+		return nil, errors.New("invalid context type for Workflow.ExecBatch")
+	}
+	groupExec := executor.NewGroupExecutor(w.nodes, parentID, execCtx, context.Background())
+	nodeValue, _, err := groupExec.ExecBatch(statusGroup, inputs, true)
+	return nodeValue, err
 }
 
 // ExecBatch 批量执行
@@ -111,7 +120,7 @@ func (w *Workflow) ExecBatch(ctx node.WorkflowContext, statusGroup *graph.NodeSt
 		return nil, errors.New("invalid context type for Workflow.ExecBatch")
 	}
 	groupExec := executor.NewGroupExecutor(w.nodes, parentID, execCtx, context.Background())
-	nodeValue, _, err := groupExec.ExecBatch(statusGroup, inputs)
+	nodeValue, _, err := groupExec.ExecBatch(statusGroup, inputs, false)
 	return nodeValue, err
 }
 
@@ -266,11 +275,13 @@ func NewAgentExecutorWithExecutorId(executorId string, agent *Agent, execConfig 
 	if len(executorId) == 0 {
 		executorId = agent.GetID() + "#" + util.GenerateUUID()
 	}
-	if execConfig.RelPath == "" {
-		md5 := util.MD5(executorId)
-		execConfig.RelPath = util.PathJoin(execConfig.RootCachePath, md5[0:2], md5)
-	} else {
-		execConfig.RelPath = util.PathJoin(execConfig.RootCachePath, execConfig.RelPath)
+	if len(execConfig.RootCachePath) > 0 {
+		if execConfig.RelPath == "" {
+			md5 := util.MD5(executorId)
+			execConfig.RelPath = util.PathJoin(execConfig.RootCachePath, md5[0:2], md5)
+		} else {
+			execConfig.RelPath = util.PathJoin(execConfig.RootCachePath, execConfig.RelPath)
+		}
 	}
 	nodes := agent.workflow.GetNodes()
 	pool0 := pool2.NewGOPool(execConfig.MaxConcurrency)

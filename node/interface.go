@@ -38,11 +38,10 @@ type Node interface {
 // WorkflowContext 工作流上下文接口
 type WorkflowContext interface {
 	GetRootValue() *value.ObjectValue
+	GetShareValue() *value.ArrayValue
 	GetParentID() string
 	GetNodeValue(nodeID string) value.NodeValue
-
 	GetNodeStatus(nodeID string) graph.NodeStatusInterface
-
 	AddNodeValue(nodeID string, nodeValue value.NodeValue)
 	IsCacheEnabled() bool
 	GetCachePath() string
@@ -51,7 +50,7 @@ type WorkflowContext interface {
 	GetCache(key, nodeID string) (value.NodeValue, error)
 	HasCache(key, nodeID string) bool
 	// CreateChildContext 创建子上下文，用于IFNode等条件节点执行子工作流
-	CreateChildContext(nodes []Node, childRootValue *value.ObjectValue, childParentID string) WorkflowContext
+	CreateChildContext(nodes []Node, childRootValue *value.ObjectValue, shareValue *value.ArrayValue, childParentID string) WorkflowContext
 }
 
 // WorkflowInterface 工作流接口
@@ -62,6 +61,9 @@ type WorkflowInterface interface {
 	ExecBatch(ctx WorkflowContext, statusGroup *graph.NodeStatusGroup, parentID string, inputs []*value.ObjectValue) (value.NodeValue, error)
 	// Execute 执行子工作流（创建子上下文）
 	Execute(ctx WorkflowContext, input *value.ObjectValue, parentID string) (value.NodeValue, error)
+
+	ExecBatchOrder(ctx WorkflowContext, statusGroup *graph.NodeStatusGroup, parentID string, input []*value.ObjectValue) (value.NodeValue, error)
+
 	// GetGraphs 获取节点图列表
 	GetGraphs() []*graph.NodeGraph
 }

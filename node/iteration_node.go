@@ -1,6 +1,8 @@
 package node
 
 import (
+	"strconv"
+
 	"emperror.dev/errors"
 	"github.com/chuccp/ai-agent/graph"
 	"github.com/chuccp/ai-agent/types"
@@ -56,6 +58,24 @@ func (n *IterationNode) GetWorkflow() WorkflowInterface {
 	return n.workflow
 }
 
+// BuildCurrentParentID 构建当前节点的父ID（供 IterationNode 和 OrderIterationNode 复用）
+func (n *IterationNode) BuildCurrentParentID(state *State) string {
+	workflowParentID := state.GetWorkflowContext().GetParentID()
+	currentParentID := n.ID
+	if util.IsNotBlank(workflowParentID) {
+		currentParentID = workflowParentID + "_" + n.ID
+	}
+	return currentParentID
+}
+
+// BuildIterParentID 构建迭代的父ID（供 OrderIterationNode 复用）
+func BuildIterParentID(parentID string, index int) string {
+	if parentID == "" {
+		return strconv.Itoa(index)
+	}
+	return parentID + "_" + strconv.Itoa(index)
+}
+
 // Exec 执行节点
 func (n *IterationNode) Exec(state *State) (value.NodeValue, error) {
 	if n.workflow == nil {
@@ -75,11 +95,8 @@ func (n *IterationNode) Exec(state *State) (value.NodeValue, error) {
 		input.AddAllIFNULL(sharedInput)
 	}
 
-	workflowParentID := state.GetWorkflowContext().GetParentID()
-	currentParentID := n.ID
-	if util.IsNotBlank(workflowParentID) {
-		currentParentID = workflowParentID + "_" + n.ID
-	}
+	// 构建父ID (复用共用方法)
+	currentParentID := n.BuildCurrentParentID(state)
 
 	statusGroup, ok := state.GetNodeStatus().(*graph.NodeStatusGroup)
 	if !ok {

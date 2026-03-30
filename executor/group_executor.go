@@ -31,36 +31,48 @@ func NewGroupExecutor(nodes []node.Node, parentID string, parentContext *Context
 }
 
 // ExecBatch 批量执行（使用goroutine并发，带panic恢复）
-func (e *GroupExecutor) ExecBatch(statusGroup *graph.NodeStatusGroup, inputs []*value.ObjectValue) (value.NodeValue, bool, error) {
+func (e *GroupExecutor) ExecBatch(statusGroup *graph.NodeStatusGroup, inputs []*value.ObjectValue, isOrder bool) (value.NodeValue, bool, error) {
 
-	results := make([]value.NodeValue, len(inputs))
-	for i := range results {
-		results[i] = value.NullValue
-	}
+	arr := value.NewArrayValue()
 	// 单输入直接执行
 	if len(inputs) == 1 {
-		nodeExecutor := e.executeSingle(0, inputs[0])
+		nodeExecutor := e.executeSingle(0, inputs[0], arr)
 		statusGroup.AddChildren(nodeExecutor.GetNodeStatus())
-		result, err := nodeExecutor.Exec(e.ctxContext, e.pool2)
+		result, err := nodeExecutor.Exec(e.pool2)
 		if err != nil {
 			return nil, false, err
 		}
 		if result == nil || result.IsNull() {
 			return value.NullValue, false, nil
 		}
-
-		arr := value.NewArrayValue()
 		arr.Add(result)
 		return arr, true, nil
 	}
 	nodeExecutors := make([]*NodeExecutor, len(inputs))
 	for i, input := range inputs {
-		nodeExecutor := e.executeSingle(i, input)
+		nodeExecutor := e.executeSingle(i, input, arr)
 		statusGroup.AddChildren(nodeExecutor.GetNodeStatus())
 		nodeExecutors[i] = nodeExecutor
 	}
+	if isOrder {
+		for i := 0; i < len(nodeExecutors); i++ {
+			nodeValue, err := nodeExecutors[i].Exec(e.pool2)
+			if err != nil {
+				return nil, false, err
+			}
+			if nodeValue == nil || nodeValue.IsNull() {
+				return value.NullValue, false, nil
+			}
+			arr.Add(nodeValue)
+		}
+		return arr, true, nil
+	}
+	results := make([]value.NodeValue, len(inputs))
+	for i := range results {
+		results[i] = value.NullValue
+	}
 	err := e.pool2.WaitGOIndex(len(inputs), func(index int) error {
-		nodeValue, err := nodeExecutors[index].Exec(e.ctxContext, e.pool2)
+		nodeValue, err := nodeExecutors[index].Exec(e.pool2)
 		if err != nil {
 			return err
 		}
@@ -70,7 +82,6 @@ func (e *GroupExecutor) ExecBatch(statusGroup *graph.NodeStatusGroup, inputs []*
 	if err != nil {
 		return nil, false, err
 	}
-	arr := value.NewArrayValue()
 	for _, result := range results {
 		if result == nil || result.IsNull() {
 			return value.NullValue, false, nil
@@ -80,9 +91,9 @@ func (e *GroupExecutor) ExecBatch(statusGroup *graph.NodeStatusGroup, inputs []*
 	return arr, true, nil
 }
 
-func (e *GroupExecutor) executeSingle(index int, input *value.ObjectValue) *NodeExecutor {
+func (e *GroupExecutor) executeSingle(index int, input *value.ObjectValue, shareValue *value.ArrayValue) *NodeExecutor {
 	childParentId := e.buildChildParentID(index)
-	childContext := e.parentContext.CreateChildContext(e.nodes, input, childParentId).(*Context)
+	childContext := e.parentContext.CreateChildContext(e.nodes, input, shareValue, childParentId).(*Context)
 	nodeExecutor := NewNodeExecutor(index, e.nodes, childContext)
 	return nodeExecutor
 }
