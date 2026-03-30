@@ -145,6 +145,9 @@ func NewNodeState(workflowContext WorkflowContext, nodeID string, input *value.O
 		Parameter:       parameter,
 	}
 }
+func (s *State) GetShareValue() *value.ArrayValue {
+	return s.workflowContext.GetShareValue()
+}
 
 // GetWorkflowContext 获取工作流上下文
 func (s *State) GetWorkflowContext() WorkflowContext {

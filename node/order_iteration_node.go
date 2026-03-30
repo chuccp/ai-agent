@@ -6,7 +6,7 @@ import (
 	"github.com/chuccp/ai-agent/value"
 )
 
-// OrderIterationNode 顺序处理迭代节点，不并发，值共享
+// OrderIterationNode 顺序处理迭代节点
 type OrderIterationNode struct {
 	*IterationNode
 }
