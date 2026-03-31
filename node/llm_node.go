@@ -104,7 +104,7 @@ func (n *LLMNode) Exec(state *State) (value.NodeValue, error) {
 		return nil, err
 	}
 
-	if n.systemTemplate == "" || n.userTemplate == "" {
+	if n.systemTemplate == "" && n.userTemplate == "" {
 		return nil, ErrLLMNodeTemplateRequired
 	}
 
