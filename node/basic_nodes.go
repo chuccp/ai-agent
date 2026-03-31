@@ -1,6 +1,7 @@
 package node
 
 import (
+	"emperror.dev/errors"
 	"github.com/chuccp/ai-agent/graph"
 	"github.com/chuccp/ai-agent/types"
 	"github.com/chuccp/ai-agent/value"
@@ -138,7 +139,7 @@ func NewFunctionNode(id string, execFunc NodeExecFunc) *FunctionNode {
 // Exec 执行节点
 func (n *FunctionNode) Exec(state *State) (value.NodeValue, error) {
 	if n.execFunc == nil {
-		return n.ParseValuesFromWithError(state, n.ValuesFrom)
+		return nil, errors.New(n.ID + " execFunc is nil")
 	}
 	return n.execFunc(state)
 }

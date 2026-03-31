@@ -19,6 +19,13 @@ func NewValueFrom(nodeID, from, param string) *ValueFrom {
 		Param:  param,
 	}
 }
+func NewValueFromNodeAll(nodeID string) *ValueFrom {
+	return &ValueFrom{
+		NodeID: nodeID,
+		From:   "",
+		Param:  "",
+	}
+}
 
 // ParseValueFrom 解析值来源字符串
 // 格式: "nodeId$.path" 或 "path"
