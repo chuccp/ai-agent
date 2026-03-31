@@ -5,6 +5,7 @@ import (
 
 	"github.com/chuccp/ai-agent/node"
 	"github.com/chuccp/ai-agent/util"
+	"github.com/chuccp/ai-agent/value"
 )
 
 // ExecNode 执行节点
@@ -168,10 +169,10 @@ func createNodeTrees(n node.Node, nodeMap map[string]node.Node, execNodes *ExecN
 				}
 			}
 		}
-		// 处理IterationNode的IterationFrom
-		if iterNode, ok := n.(*node.IterationNode); ok {
+		// 处理IterationNode和OrderIterationNode的IterationFrom
+		if iterNode, ok := n.(interface{ GetIterationFrom() []*value.ValueFrom }); ok {
 			iterationFrom := iterNode.GetIterationFrom()
-			if iterationFrom != nil && len(iterationFrom) > 0 {
+			if len(iterationFrom) > 0 {
 				set = true
 				for _, vf := range iterationFrom {
 					if util.IsNotBlank(vf.NodeID) {
