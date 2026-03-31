@@ -114,6 +114,9 @@ func (n *ImageGenerationNode) Exec(state *State) (value.NodeValue, error) {
 	if err != nil {
 		return nil, err
 	}
+	if userPrompt == "" {
+		return nil, errors.New(" userPrompt is empty ")
+	}
 
 	// 解析参数（node设置优先级高于Parameter）
 	maxNumber := n.resolveMaxNumber(state)

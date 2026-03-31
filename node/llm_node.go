@@ -104,6 +104,10 @@ func (n *LLMNode) Exec(state *State) (value.NodeValue, error) {
 		return nil, err
 	}
 
+	if n.systemTemplate == "" || n.userTemplate == "" {
+		return nil, ErrLLMNodeTemplateRequired
+	}
+
 	// 解析参数（node设置优先级高于Parameter）
 	stream := n.resolveStream(state)
 	cacheEnabled := n.resolveCacheEnabled(state)
