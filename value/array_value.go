@@ -2,6 +2,7 @@ package value
 
 import (
 	"encoding/json"
+	"net/url"
 	"sync"
 )
 
@@ -176,7 +177,20 @@ func (a *ArrayValue) FindValue(path string) NodeValue {
 func (a *ArrayValue) String() string {
 	return string(a.ToJSON())
 }
-
+func (a *ArrayValue) AsUrlsWithError() (urlsValue *UrlsValue, err error) {
+	urlsValue = NewUrlsValue()
+	a.ForEach(func(index int, value NodeValue) bool {
+		u, err2 := url.Parse(value.AsText().Text)
+		if err2 == nil {
+			urlsValue.Add(*u)
+		}
+		if err == nil && err2 != nil {
+			err = err2
+		}
+		return true
+	})
+	return urlsValue, err
+}
 func (a *ArrayValue) ToJSON() json.RawMessage {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
