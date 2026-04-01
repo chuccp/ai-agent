@@ -240,32 +240,24 @@ func (o *ObjectValue) String() string {
 	return string(o.ToJSON())
 }
 
+// ToJSON 返回JSON字符串表示
 func (o *ObjectValue) ToJSON() json.RawMessage {
 	o.mu.RLock()
 	defer o.mu.RUnlock()
-	m := make(map[string]interface{})
+	m := make(map[string]json.RawMessage)
 	for k, v := range o.data {
-		var val interface{}
-		if err := json.Unmarshal(v.ToJSON(), &val); err == nil {
-			m[k] = val
-		}
+		m[k] = v.ToJSON()
 	}
 	data, _ := json.Marshal(m)
 	return data
 }
 
 // ToMap 转换为map
-func (o *ObjectValue) ToMap() map[string]interface{} {
+func (o *ObjectValue) ToMap() map[string]NodeValue {
 	o.mu.RLock()
 	defer o.mu.RUnlock()
-	m := make(map[string]interface{})
-	for k, v := range o.data {
-		var val interface{}
-		if err := json.Unmarshal(v.ToJSON(), &val); err == nil {
-			m[k] = val
-		}
-	}
-	return m
+
+	return o.data
 }
 
 // FromJSON 从JSON解析

@@ -177,6 +177,19 @@ func (a *ArrayValue) FindValue(path string) NodeValue {
 func (a *ArrayValue) String() string {
 	return string(a.ToJSON())
 }
+
+// ToJSON 返回JSON字符串表示
+func (a *ArrayValue) ToJSON() json.RawMessage {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	arr := make([]json.RawMessage, len(a.values))
+	for i, v := range a.values {
+		arr[i] = v.ToJSON()
+	}
+	data, _ := json.Marshal(arr)
+	return data
+}
+
 func (a *ArrayValue) AsUrlsWithError() (urlsValue *UrlsValue, err error) {
 	urlsValue = NewUrlsValue()
 	a.ForEach(func(index int, value NodeValue) bool {
@@ -190,19 +203,6 @@ func (a *ArrayValue) AsUrlsWithError() (urlsValue *UrlsValue, err error) {
 		return true
 	})
 	return urlsValue, err
-}
-func (a *ArrayValue) ToJSON() json.RawMessage {
-	a.mu.RLock()
-	defer a.mu.RUnlock()
-	arr := make([]interface{}, 0, len(a.values))
-	for _, v := range a.values {
-		var val interface{}
-		if err := json.Unmarshal(v.ToJSON(), &val); err == nil {
-			arr = append(arr, val)
-		}
-	}
-	data, _ := json.Marshal(arr)
-	return data
 }
 
 // FromJSON 从JSON解析
@@ -227,4 +227,28 @@ func ParseArrayValue(data []byte) (*ArrayValue, error) {
 		return nil, err
 	}
 	return arr, nil
+}
+
+// FindMaxByScore 根据评分函数找到得分最高的元素及其得分
+// 返回值：元素、得分、是否找到
+// scoreFunc: 评分函数，返回元素的得分值
+func (a *ArrayValue) FindMaxByScore(scoreFunc func(value NodeValue) int) (NodeValue, int, bool) {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	if len(a.values) == 0 {
+		return nil, 0, false
+	}
+
+	maxScore := -1
+	var maxValue NodeValue
+
+	for _, v := range a.values {
+		score := scoreFunc(v)
+		if score > maxScore {
+			maxScore = score
+			maxValue = v
+		}
+	}
+
+	return maxValue, maxScore, true
 }

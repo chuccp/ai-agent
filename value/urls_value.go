@@ -107,18 +107,20 @@ func (u *UrlsValue) Strings() []string {
 	return result
 }
 
+// String 返回字符串表示
 func (u *UrlsValue) String() string {
 	return string(u.ToJSON())
 }
 
+// ToJSON 返回JSON字符串表示
 func (u *UrlsValue) ToJSON() json.RawMessage {
 	u.mu.RLock()
 	defer u.mu.RUnlock()
-	arr := make([]string, 0, len(u.urls))
-	for _, url := range u.urls {
-		arr = append(arr, url.String())
+	strs := make([]string, len(u.urls))
+	for i, url := range u.urls {
+		strs[i] = url.String()
 	}
-	data, _ := json.Marshal(arr)
+	data, _ := json.Marshal(strs)
 	return data
 }
 
@@ -162,6 +164,23 @@ func (f *FilesValue) Paths() []string {
 		result = append(result, url.Path)
 	}
 	return result
+}
+
+// String 返回字符串表示
+func (f *FilesValue) String() string {
+	return string(f.ToJSON())
+}
+
+// ToJSON 返回JSON字符串表示，返回文件路径数组
+func (f *FilesValue) ToJSON() json.RawMessage {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+	paths := make([]string, len(f.urls))
+	for i, url := range f.urls {
+		paths[i] = url.Path
+	}
+	data, _ := json.Marshal(paths)
+	return data
 }
 
 // AddAllFiles 添加所有文件值

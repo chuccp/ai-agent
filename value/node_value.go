@@ -260,9 +260,10 @@ func (s *StreamNodeValue) String() string {
 	return "stream"
 }
 
-// ToJSON 返回JSON表示
+// ToJSON 返回JSON表示，将流中的所有值收集为数组
 func (s *StreamNodeValue) ToJSON() json.RawMessage {
-	return json.RawMessage(`{"type":"stream"}`)
+	arr := s.Collect()
+	return arr.ToJSON()
 }
 
 // Collect 收集所有值到数组
@@ -356,8 +357,10 @@ func (b *BoolValue) String() string {
 }
 
 func (b *BoolValue) ToJSON() json.RawMessage {
-	data, _ := json.Marshal(b.Value)
-	return data
+	if b.Value {
+		return json.RawMessage("true")
+	}
+	return json.RawMessage("false")
 }
 
 // NumberKind 表示数字的具体类型
