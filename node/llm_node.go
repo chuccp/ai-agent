@@ -10,7 +10,7 @@ import (
 )
 
 // LLMFunction LLM函数
-type LLMFunction func(nodeState *State, files *value.FilesValue, systemPrompt, userPrompt string, format out.OutFormat, stream bool) (value.NodeValue, error)
+type LLMFunction func(nodeState *State, files *value.UrlsValue, systemPrompt, userPrompt string, format out.OutFormat, stream bool) (value.NodeValue, error)
 
 // LLMNode LLM节点
 type LLMNode struct {
@@ -21,15 +21,15 @@ type LLMNode struct {
 	userTemplate   string
 	llmFunction    LLMFunction
 	cacheEnabled   bool
-	fileValuesFrom []*value.FilesValueFrom
+	urlsValueFrom  []*value.UrlsValueFrom
 }
 
 // NewLLMNode 创建LLM节点
-func NewLLMNode(id string, fileValuesFrom []*value.FilesValueFrom) *LLMNode {
+func NewLLMNode(id string, urlsValueFrom []*value.UrlsValueFrom) *LLMNode {
 	return &LLMNode{
-		BaseNode:       NewBaseNode(id, types.NodeTypeSingle),
-		fileValuesFrom: fileValuesFrom,
-		cacheEnabled:   true,
+		BaseNode:      NewBaseNode(id, types.NodeTypeSingle),
+		urlsValueFrom: urlsValueFrom,
+		cacheEnabled:  true,
 	}
 }
 
@@ -69,15 +69,25 @@ func (n *LLMNode) IsCacheEnabled() bool {
 }
 
 // ParseFilesValuesFrom 解析文件值来源
-func (n *LLMNode) ParseFilesValuesFrom(state *State) (*value.FilesValue, error) {
-	filesValue := value.NewFilesValue()
-	if n.fileValuesFrom == nil {
+func (n *LLMNode) ParseUrlsValuesFrom(state *State) (*value.UrlsValue, error) {
+	filesValue := value.NewUrlsValue()
+	if n.urlsValueFrom == nil {
 		return filesValue, nil
 	}
-	for _, vf := range n.fileValuesFrom {
+	for _, vf := range n.urlsValueFrom {
 		nodeValue := state.GetNodeValueFromNode(vf.NodeID, vf.From)
-		if nodeValue != nil && nodeValue.IsFiles() {
-			filesValue.AddAllFiles(nodeValue.AsFiles())
+		if nodeValue != nil {
+			if nodeValue.IsUrls() {
+				filesValue.AddAll(nodeValue.AsUrls())
+			}
+			if nodeValue.IsFiles() {
+				filesValue.AddAll(nodeValue.AsFiles().AsUrls())
+			}
+			if nodeValue.IsArray() {
+				vs, _ := nodeValue.AsArray().AsUrlsWithError()
+				filesValue.AddAll(vs)
+			}
+
 		}
 	}
 	return filesValue, nil
@@ -89,7 +99,7 @@ func (n *LLMNode) Exec(state *State) (value.NodeValue, error) {
 	if err != nil {
 		return nil, err
 	}
-	filesValue, err := n.ParseFilesValuesFrom(state)
+	urlsValue, err := n.ParseUrlsValuesFrom(state)
 	if err != nil {
 		return nil, err
 	}
@@ -114,8 +124,8 @@ func (n *LLMNode) Exec(state *State) (value.NodeValue, error) {
 
 	// 构建缓存键
 	cacheKey := systemPrompt + userPrompt
-	if !filesValue.IsEmpty() {
-		cacheKey += filesValue.String()
+	if !urlsValue.IsEmpty() {
+		cacheKey += urlsValue.String()
 	}
 
 	// 检查缓存
@@ -126,10 +136,14 @@ func (n *LLMNode) Exec(state *State) (value.NodeValue, error) {
 		}
 	}
 
+	if n.formatOut == nil {
+		return nil, errors.New(n.ID +" LLMNode formatOut is required")
+	}
+
 	// 执行LLM函数
 	var result value.NodeValue
 	if n.llmFunction != nil {
-		result, err = n.llmFunction(state, filesValue, systemPrompt, userPrompt, n.formatOut, stream)
+		result, err = n.llmFunction(state, urlsValue, systemPrompt, userPrompt, n.formatOut, stream)
 		if err != nil {
 			return nil, err
 		}
@@ -210,8 +224,8 @@ func (b *LLMNodeBuilder) ValuesFrom(valuesFrom ...*value.ValueFrom) *LLMNodeBuil
 }
 
 // FileValuesFrom 设置文件值来源
-func (b *LLMNodeBuilder) FileValuesFrom(fileValuesFrom ...*value.FilesValueFrom) *LLMNodeBuilder {
-	b.node.fileValuesFrom = append(b.node.fileValuesFrom, fileValuesFrom...)
+func (b *LLMNodeBuilder) UrlsValueFrom(urlsValueFrom ...*value.UrlsValueFrom) *LLMNodeBuilder {
+	b.node.urlsValueFrom = append(b.node.urlsValueFrom, urlsValueFrom...)
 	return b
 }
 

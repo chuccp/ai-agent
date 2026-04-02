@@ -15,7 +15,9 @@
       "Bash(dir:*)",
       "Bash(del:*)",
       "Bash(cmd /c del \"C:\\\\Users\\\\cao\\\\Documents\\\\GitHub\\\\ai-agent\\\\pool\\\\caller_runs_pool.go\")",
-      "Bash(cmd /c del \"C:\\\\Users\\\\cao\\\\Documents\\\\GitHub\\\\ai-agent\\\\pool\\\\custom_pool.go\")"
+      "Bash(cmd /c del \"C:\\\\Users\\\\cao\\\\Documents\\\\GitHub\\\\ai-agent\\\\pool\\\\custom_pool.go\")",
+      "Bash(go install:*)",
+      "Bash(dlv version:*)"
     ]
   }
 }

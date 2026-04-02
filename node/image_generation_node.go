@@ -71,10 +71,10 @@ func (n *ImageGenerationNode) SetCacheEnabled(enabled bool) *ImageGenerationNode
 }
 
 // ParseUrlsValuesFrom 解析URL值来源
-func (n *ImageGenerationNode) ParseUrlsValuesFrom(state *State) *value.UrlsValue {
+func (n *ImageGenerationNode) ParseUrlsValuesFromWithError(state *State) (*value.UrlsValue, error) {
 	urlsValue := value.NewUrlsValue()
 	if n.urlsValuesFrom == nil {
-		return urlsValue
+		return urlsValue, nil
 	}
 
 	for _, vf := range n.urlsValuesFrom {
@@ -82,7 +82,6 @@ func (n *ImageGenerationNode) ParseUrlsValuesFrom(state *State) *value.UrlsValue
 		if nodeValue != nil && nodeValue.IsUrls() {
 			urlsValue.AddAll(nodeValue.AsUrls())
 		}
-
 		if nodeValue != nil && nodeValue.IsArray() {
 			nodeValue.AsArray().ForEach(func(index int, value value.NodeValue) bool {
 				if value.IsText() {
@@ -96,8 +95,10 @@ func (n *ImageGenerationNode) ParseUrlsValuesFrom(state *State) *value.UrlsValue
 		}
 
 	}
-
-	return urlsValue
+	if len(n.urlsValuesFrom) > 0 && urlsValue.IsEmpty() {
+		return nil, errors.New(" urlsValue is empty ")
+	}
+	return urlsValue, nil
 }
 
 // Exec 执行节点
@@ -107,8 +108,10 @@ func (n *ImageGenerationNode) Exec(state *State) (value.NodeValue, error) {
 	if err != nil {
 		return nil, err
 	}
-	urlsValue := n.ParseUrlsValuesFrom(state)
-
+	urlsValue, err := n.ParseUrlsValuesFromWithError(state)
+	if err != nil {
+		return nil, err
+	}
 	// 执行模板
 	userPrompt, err := nodeValue.ExecuteTemplateWithDollarFormat(n.userTemplate)
 	if err != nil {

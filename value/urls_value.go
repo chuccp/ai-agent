@@ -154,6 +154,9 @@ func (f *FilesValue) IsFiles() bool {
 func (f *FilesValue) AsFiles() *FilesValue {
 	return f
 }
+func (f *FilesValue) AsUrls() *UrlsValue {
+	return NewUrlsValueFromSlice(f.urls)
+}
 
 // Paths 获取所有文件路径
 func (f *FilesValue) Paths() []string {
