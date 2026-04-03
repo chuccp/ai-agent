@@ -273,6 +273,9 @@ func (s *State) GetCacheLLM(key string) (value.NodeValue, error) {
 		return nil, nil
 	}
 	object, err := s.GetCache(key)
+	if object == nil {
+		return value.NullValue, err
+	}
 	if err != nil {
 		return nil, err
 	}
