@@ -97,7 +97,10 @@ func (n *BaseNode) ParseNoRootValuesFromWithError(state *State, valuesFrom []*va
 	result := value.NewObjectValue()
 	if valuesFrom != nil {
 		for _, vf := range valuesFrom {
-			nodeValue := state.GetNodeValueFromValueFrom(vf)
+			nodeValue, err := state.GetNodeValueFromValueFrom(vf)
+			if err != nil {
+				return nil, err
+			}
 			if nodeValue == nil {
 				return nil, errors.New("Node " + n.ID + " ValueFrom " + vf.From + " not found")
 			}
@@ -254,6 +257,28 @@ func (s *State) SaveCache(key string, nodeValue value.NodeValue) error {
 	return s.workflowContext.SaveCache(key, s.nodeID, nodeValue)
 }
 
+func (s *State) SaveCacheLLM(key string, nodeValue value.NodeValue, system string, user string, urlsValue *value.UrlsValue) error {
+	if s.workflowContext == nil {
+		return nil
+	}
+	object := value.NewObjectValue()
+	object.Put("system", value.NewTextValue(system))
+	object.Put("user", value.NewTextValue(user))
+	object.Put("urls", urlsValue)
+	object.Put("result", nodeValue)
+	return s.workflowContext.SaveCache(key, s.nodeID, object)
+}
+func (s *State) GetCacheLLM(key string) (value.NodeValue, error) {
+	if s.workflowContext == nil {
+		return nil, nil
+	}
+	object, err := s.GetCache(key)
+	if err != nil {
+		return nil, err
+	}
+	return object.AsObject().Get("result"), err
+}
+
 // GetCache 获取缓存
 func (s *State) GetCache(key string) (value.NodeValue, error) {
 	if s.workflowContext == nil {
@@ -271,12 +296,16 @@ func (s *State) HasCache(key string) bool {
 }
 
 // GetNodeValueFromValueFrom 从ValueFrom获取节点值
-func (s *State) GetNodeValueFromValueFrom(vf *value.ValueFrom) value.NodeValue {
-	return s.GetNodeValueFromNode(vf.NodeID, vf.From)
+func (s *State) GetNodeValueFromValueFrom(vf *value.ValueFrom) (value.NodeValue, error) {
+	return s.GetNodeValueFromNodeWithError(vf.NodeID, vf.From)
 }
 
 // GetNodeValueFromNode 从节点获取值
 func (s *State) GetNodeValueFromNode(nodeID, from string) value.NodeValue {
+	v, _ := s.GetNodeValueFromNodeWithError(nodeID, from)
+	return v
+}
+func (s *State) GetNodeValueFromNodeWithError(nodeID, from string) (value.NodeValue, error) {
 	var source value.NodeValue
 	if util.IsBlank(nodeID) {
 		source = s.GetRootValue()
@@ -285,14 +314,14 @@ func (s *State) GetNodeValueFromNode(nodeID, from string) value.NodeValue {
 	}
 
 	if source == nil {
-		return nil
+		return nil, errors.New("Node " + s.nodeID + " not found")
 	}
 
 	if util.IsBlank(from) || util.EqualsAny(from, ".", "*", "$", "$.") {
-		return source
+		return source, nil
 	}
 
-	return source.FindValue(from)
+	return source.FindValue(from), nil
 }
 func (s *State) GetNodeValueFromRootNode(from string) value.NodeValue {
 	var source value.NodeValue = s.GetRootValue()

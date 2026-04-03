@@ -78,7 +78,10 @@ func (n *ImageGenerationNode) ParseUrlsValuesFromWithError(state *State) (*value
 	}
 
 	for _, vf := range n.urlsValuesFrom {
-		nodeValue := state.GetNodeValueFromNode(vf.NodeID, vf.From)
+		nodeValue, err := state.GetNodeValueFromNodeWithError(vf.NodeID, vf.From)
+		if err != nil {
+			return nil, err
+		}
 		if nodeValue != nil && nodeValue.IsUrls() {
 			urlsValue.AddAll(nodeValue.AsUrls())
 		}
@@ -94,9 +97,6 @@ func (n *ImageGenerationNode) ParseUrlsValuesFromWithError(state *State) (*value
 			})
 		}
 
-	}
-	if len(n.urlsValuesFrom) > 0 && urlsValue.IsEmpty() {
-		return nil, errors.New(" urlsValue is empty ")
 	}
 	return urlsValue, nil
 }

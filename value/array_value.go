@@ -44,8 +44,9 @@ func (a *ArrayValue) Add(value NodeValue) {
 	}
 }
 
-func (a *ArrayValue) AddAny(value any) {
+func (a *ArrayValue) AddAny(value any) *ArrayValue {
 	a.Add(fromInterface(value))
+	return a
 }
 
 // AddText 添加文本值

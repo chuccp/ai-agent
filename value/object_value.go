@@ -142,10 +142,11 @@ func (o *ObjectValue) Put(key string, value NodeValue) {
 	defer o.mu.Unlock()
 	o.data[key] = value
 }
-func (o *ObjectValue) PutAny(key string, value any) {
+func (o *ObjectValue) PutAny(key string, value any) *ObjectValue {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	o.data[key] = fromInterface(value)
+	return o
 }
 
 // PutString 设置字符串值

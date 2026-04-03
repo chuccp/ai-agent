@@ -75,7 +75,10 @@ func (n *LLMNode) ParseUrlsValuesFrom(state *State) (*value.UrlsValue, error) {
 		return filesValue, nil
 	}
 	for _, vf := range n.urlsValueFrom {
-		nodeValue := state.GetNodeValueFromNode(vf.NodeID, vf.From)
+		nodeValue, err := state.GetNodeValueFromNodeWithError(vf.NodeID, vf.From)
+		if err != nil {
+			return nil, err
+		}
 		if nodeValue != nil {
 			if nodeValue.IsUrls() {
 				filesValue.AddAll(nodeValue.AsUrls())
@@ -123,21 +126,21 @@ func (n *LLMNode) Exec(state *State) (value.NodeValue, error) {
 	cacheEnabled := n.resolveCacheEnabled(state)
 
 	// 构建缓存键
-	cacheKey := systemPrompt + userPrompt
+	cacheKey := systemPrompt + userPrompt + urlsValue.String()
 	if !urlsValue.IsEmpty() {
 		cacheKey += urlsValue.String()
 	}
 
 	// 检查缓存
 	if cacheEnabled && state.IsCacheEnabled() {
-		cachedResult, err := state.GetCache(cacheKey)
+		cachedResult, err := state.GetCacheLLM(cacheKey)
 		if err == nil && cachedResult != nil && !cachedResult.IsNull() {
 			return cachedResult, nil
 		}
 	}
 
 	if n.formatOut == nil {
-		return nil, errors.New(n.ID +" LLMNode formatOut is required")
+		return nil, errors.New(n.ID + " LLMNode formatOut is required")
 	}
 
 	// 执行LLM函数
@@ -153,7 +156,7 @@ func (n *LLMNode) Exec(state *State) (value.NodeValue, error) {
 
 	// 保存到缓存
 	if cacheEnabled && result != nil && state.IsCacheEnabled() {
-		state.SaveCache(cacheKey, result)
+		state.SaveCacheLLM(cacheKey, result, n.systemTemplate, n.userTemplate, urlsValue)
 	}
 
 	return result, nil

@@ -133,7 +133,10 @@ func (n *IterationNode) ExpandIterationInputs(state *State) ([]*value.ObjectValu
 	var inputs []*value.ObjectValue
 
 	for _, vf := range n.iterationFrom {
-		nodeValue := state.GetNodeValueFromValueFrom(vf)
+		nodeValue, err := state.GetNodeValueFromValueFrom(vf)
+		if err != nil {
+			return nil, err
+		}
 		if nodeValue == nil || !nodeValue.IsArray() {
 			return nil, ErrIterationNodeRequiresArrayInput
 		}
