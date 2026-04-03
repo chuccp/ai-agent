@@ -156,7 +156,7 @@ func (n *LLMNode) Exec(state *State) (value.NodeValue, error) {
 
 	// 保存到缓存
 	if cacheEnabled && result != nil && state.IsCacheEnabled() {
-		state.SaveCacheLLM(cacheKey, result, n.systemTemplate, n.userTemplate, urlsValue)
+		state.SaveCacheLLM(cacheKey, result, systemPrompt, userPrompt, urlsValue)
 	}
 
 	return result, nil
