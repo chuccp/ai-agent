@@ -129,7 +129,7 @@ func FromJSON(data []byte) (NodeValue, error) {
 	return fromInterface(v), nil
 }
 
-func fromInterface(v interface{}) NodeValue {
+func fromInterface(v any) NodeValue {
 	if v == nil {
 		return NullValue
 	}
@@ -141,13 +141,13 @@ func fromInterface(v interface{}) NodeValue {
 		return NewNumberValue(val)
 	case string:
 		return NewTextValue(val)
-	case []interface{}:
+	case []any:
 		arr := NewArrayValue()
 		for _, item := range val {
 			arr.Add(fromInterface(item))
 		}
 		return arr
-	case map[string]interface{}:
+	case map[string]any:
 		obj := NewObjectValue()
 		for k, item := range val {
 			obj.Put(k, fromInterface(item))
