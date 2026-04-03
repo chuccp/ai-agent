@@ -135,6 +135,8 @@ func fromInterface(v any) NodeValue {
 	}
 
 	switch val := v.(type) {
+	case NodeValue:
+		return val
 	case bool:
 		return NewBoolValue(val)
 	case float64:
