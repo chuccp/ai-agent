@@ -4,6 +4,7 @@ import (
 	"context"
 	"strconv"
 
+	"emperror.dev/errors"
 	"github.com/chuccp/ai-agent/graph"
 	"github.com/chuccp/ai-agent/node"
 	pool2 "github.com/chuccp/ai-agent/pool"
@@ -74,7 +75,7 @@ func (e *GroupExecutor) ExecBatch(statusGroup *graph.NodeStatusGroup, inputs []*
 	err := e.pool2.WaitGOIndex(len(inputs), func(index int) error {
 		nodeValue, err := nodeExecutors[index].Exec(e.pool2)
 		if err != nil {
-			return err
+			return errors.Append(err, errors.New("执行失败:"+strconv.Itoa(index)))
 		}
 		results[index] = nodeValue
 		return nil
