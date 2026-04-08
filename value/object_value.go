@@ -106,6 +106,18 @@ func (o *ObjectValue) GetNumber(key string) float64 {
 	return 0
 }
 
+// GetInt 获取整数值
+func (o *ObjectValue) GetInt(key string) int {
+	v := o.Get(key)
+	if v == nil || v.IsNull() {
+		return 0
+	}
+	if v.IsNumber() {
+		return int(v.AsNumber().Int64())
+	}
+	return 0
+}
+
 // GetBool 获取布尔值
 func (o *ObjectValue) GetBool(key string) bool {
 	v := o.Get(key)

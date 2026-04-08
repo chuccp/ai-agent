@@ -49,6 +49,11 @@ func (u *UrlsValue) Add(url url.URL) {
 	defer u.mu.Unlock()
 	u.urls = append(u.urls, url)
 }
+func (u *UrlsValue) Adds(urls []url.URL) {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	u.urls = append(u.urls, urls...)
+}
 func StringToURL(value string) (*url.URL, error) {
 	return url.Parse(value)
 }
