@@ -141,6 +141,28 @@ func fromInterface(v any) NodeValue {
 		return NewBoolValue(val)
 	case float64:
 		return NewNumberValue(val)
+	case float32:
+		return NewFloat32Value(val)
+	case int:
+		return NewIntValue(val)
+	case int8:
+		return NewInt8Value(val)
+	case int16:
+		return NewInt16Value(val)
+	case int32:
+		return NewInt32Value(val)
+	case int64:
+		return NewInt64Value(val)
+	case uint:
+		return NewUintValue(val)
+	case uint8:
+		return NewUint8Value(val)
+	case uint16:
+		return NewUint16Value(val)
+	case uint32:
+		return NewUint32Value(val)
+	case uint64:
+		return NewUint64Value(val)
 	case string:
 		return NewTextValue(val)
 	case []any:

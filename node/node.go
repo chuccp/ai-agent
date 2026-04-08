@@ -308,6 +308,9 @@ func (s *State) GetNodeValueFromNode(nodeID, from string) value.NodeValue {
 	v, _ := s.GetNodeValueFromNodeWithError(nodeID, from)
 	return v
 }
+func (s *State) GetNodeValueFromNodeId(nodeID string) value.NodeValue {
+	return s.GetNodeValueFromNode(nodeID, "")
+}
 func (s *State) GetNodeValueFromNodeWithError(nodeID, from string) (value.NodeValue, error) {
 	var source value.NodeValue
 	if util.IsBlank(nodeID) {
