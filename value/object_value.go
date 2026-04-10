@@ -162,38 +162,44 @@ func (o *ObjectValue) PutAny(key string, value any) *ObjectValue {
 }
 
 // PutString 设置字符串值
-func (o *ObjectValue) PutString(key, value string) {
+func (o *ObjectValue) PutString(key, value string) *ObjectValue {
 	o.Put(key, NewTextValue(value))
+	return o
 }
 
 // PutBool 设置布尔值
-func (o *ObjectValue) PutBool(key string, value bool) {
+func (o *ObjectValue) PutBool(key string, value bool) *ObjectValue {
 	o.Put(key, NewBoolValue(value))
+	return o
 }
 
 // PutNumber 设置数值
-func (o *ObjectValue) PutNumber(key string, value float64) {
+func (o *ObjectValue) PutNumber(key string, value float64) *ObjectValue {
 	o.Put(key, NewNumberValue(value))
+	return o
 }
 
-func (o *ObjectValue) PutUint(key string, value uint) {
+func (o *ObjectValue) PutUint(key string, value uint) *ObjectValue {
 	o.Put(key, NewNumberValue(float64(value)))
+	return o
 }
 
 // PutObject 设置对象值
-func (o *ObjectValue) PutObject(key string, value *ObjectValue) {
+func (o *ObjectValue) PutObject(key string, value *ObjectValue) *ObjectValue {
 	o.Put(key, value)
+	return o
 }
 
 // PutArray 设置数组值
-func (o *ObjectValue) PutArray(key string, value *ArrayValue) {
+func (o *ObjectValue) PutArray(key string, value *ArrayValue) *ObjectValue {
 	o.Put(key, value)
+	return o
 }
 
 // AddAll 添加所有值
-func (o *ObjectValue) AddAll(other *ObjectValue) {
+func (o *ObjectValue) AddAll(other *ObjectValue) *ObjectValue {
 	if other == nil {
-		return
+		return o
 	}
 	o.mu.Lock()
 	defer o.mu.Unlock()
@@ -202,10 +208,11 @@ func (o *ObjectValue) AddAll(other *ObjectValue) {
 	for k, v := range other.data {
 		o.data[k] = v
 	}
+	return o
 }
-func (o *ObjectValue) AddAllIFNULL(other *ObjectValue) {
+func (o *ObjectValue) AddAllIFNULL(other *ObjectValue) *ObjectValue {
 	if other == nil {
-		return
+		return o
 	}
 	o.mu.Lock()
 	defer o.mu.Unlock()
@@ -218,6 +225,7 @@ func (o *ObjectValue) AddAllIFNULL(other *ObjectValue) {
 		}
 		o.data[k] = v
 	}
+	return o
 }
 
 // Clear 清空
