@@ -62,7 +62,7 @@ func main() {
 	llmNode := node.NewLLMNodeBuilder("llm").
 		SystemTemplate("You are a helpful assistant.").
 		UserTemplate("Hello, {{.name}}! Your count is {{.count}}.").
-		LLMFunction(func(nodeState *node.State, files *value.FilesValue, systemPrompt, userPrompt string, format out.OutFormat, stream bool) (value.NodeValue, error) {
+		LLMFunction(func(nodeState *node.State, files *value.UrlsValue, systemPrompt, userPrompt string, format out.OutFormat, stream bool) (value.NodeValue, error) {
 			fmt.Println("System Prompt:", systemPrompt)
 			fmt.Println("User Prompt:", userPrompt)
 

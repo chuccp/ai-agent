@@ -1,225 +1,169 @@
 # AI Agent Workflow
 
-一个用于 AI 代理工作流的 Go 并发执行引擎，支持依赖自动解析、分层并行执行和多种节点类型。
+[![Go Version](https://img.shields.io/badge/Go-1.22+-00ADD8?logo=go)](https://go.dev/)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-## 架构概述
+> **Other Languages:** [中文简体](README.zh.md) | [中文繁體](README.zh-TW.md) | [日本語](README.ja.md)
 
-核心执行流程：
+---
 
-```
-Agent → Workflow → NodeExecutor → Nodes (执行分层并发)
-```
+A lightweight, declarative AI Agent workflow engine in Go. Define node dependencies and let the engine automatically resolve execution order — nodes without dependencies run in parallel via goroutines.
 
-1. **Agent** 使用配置（缓存路径、最大并发数）包装 Workflow
-2. **Workflow** 维护节点序列并处理依赖解析
-3. **NodeExecutor** 根据节点依赖构建执行层，然后逐层执行
-4. **同一层中的节点通过 goroutine 并发执行**
+> **Declare, and it runs in parallel** — declare node dependencies, the engine automatically builds execution layers and runs them concurrently.
 
-## 项目结构
+---
 
-```
-ai-agent/
-├── agent.go              # Agent, Workflow 定义
-├── agent_manager.go      # Agent 管理器
-├── cache/                # 缓存系统
-│   └── cache_manager.go  # LLM 结果缓存管理器
-├── executor/             # 执行器
-│   ├── node_executor.go  # 节点执行器（使用 goroutine 并发）
-│   ├── group_executor.go # 批量执行器
-│   └── exec_tree.go      # 执行树构建（依赖分层）
-├── graph/                # 图可视化系统
-│   └── graph.go          # NodeGraph, Graph, NodeStatus
-├── model/                # AI 模型接口
-│   ├── llm_model.go       # LLM 模型接口
-│   └── image_generation_model.go # 图片生成模型接口
-├── node/                 # 节点系统
-│   ├── node.go           # 基础节点和节点状态 (BaseNode)
-│   ├── interface.go      # 核心接口定义 (Node, WorkflowContext, WorkflowInterface)
-│   ├── basic_nodes.go    # InputNode, OutputNode, FunctionNode
-│   ├── if_node.go        # 条件分支节点 (IFNode)
-│   ├── iteration_node.go # 迭代节点 (IterationNode)
-│   ├── llm_node.go       # LLM 节点（支持模板和缓存）
-│   └── image_generation_node.go # 图片生成节点
-├── out/                  # 输出格式系统
-│   ├── out_format.go     # 输出格式接口
-│   ├── text_out_format.go # 文本输出
-│   ├── json_out_format.go # JSON 输出
-│   └── field/            # 输出字段定义
-│       ├── field.go      # 字段接口
-│       ├── array_field.go
-│       ├── object_field.go
-│       └── text_field.go
-├── pool/                 # 并发池
-│   ├── pool.go           # 工作池实现
-│   └── pool_test.go      # 单元测试
-├── types/                # 类型定义
-│   ├── node_type.go      # 节点类型枚举
-│   ├── node_status_type.go # 节点状态
-│   ├── agent_status_type.go # Agent 状态
-│   ├── field_type.go     # 字段类型
-│   └── out_type.go       # 输出类型
-├── util/                 # 工具类
-│   ├── str_utils.go      # 字符串工具
-│   ├── file_utils.go     # 文件工具
-│   ├── http_utils.go     # HTTP 工具
-│   ├── io_utils.go       # IO 工具
-│   ├── array_utils.go    # 数组工具
-│   └── path.go           # 路径工具
-├── value/                # 值系统
-│   ├── node_value.go     # 值接口和基础类型
-│   ├── object_value.go   # 对象值
-│   ├── array_value.go    # 数组值
-│   ├── urls_value.go     # URL 值
-│   ├── files_value.go    # 文件值
-│   └── value_from.go     # 值来源声明（依赖声明）
-├── examples/             # 示例
-│   └── main.go
-└── go.mod
+## Why This Project
+
+Most Go DAG frameworks require you to manually define edges and build the graph. This engine takes a different approach:
+
+- **Declare dependencies via `ValueFrom`** — the engine automatically discovers the dependency graph
+- **No manual graph construction** — just list your nodes, the engine figures out execution order
+- **Automatic layered parallelism** — nodes at the same dependency level run concurrently
+- **Zero external dependencies** — no Redis, no database, no message queue
+
+## Comparison
+
+| Feature | ai-agent | [CloudWeGo Eino](https://github.com/cloudwego/eino) | [Dagu](https://github.com/dagucloud/dagu) |
+|---------|----------|------|-------|
+| Dependency Declaration | `ValueFrom` auto-discovery | Manual edge definition | YAML definition |
+| Parallel Execution | Automatic layered parallelism | DAG scheduler | YAML-defined |
+| AI/LLM Built-in | LLMNode, ImageGenerationNode | Yes | No |
+| External Dependencies | None | Multiple | SQLite |
+| API Style | Go code (Builder pattern) | Go code | YAML |
+| Positioning | Lightweight embedded library | Enterprise framework | Local workflow engine |
+
+---
+
+## Quick Start
+
+```bash
+go get github.com/chuccp/ai-agent
 ```
 
-## 核心概念
-
-### 值系统 (NodeValue)
-
-支持多种值类型，可通过路径查找：
-
-- **ObjectValue**: 对象值，键值对集合
-- **ArrayValue**: 数组值
-- **TextValue**: 文本值
-- **BoolValue**: 布尔值
-- **NumberValue**: 数值
-- **NullValue**: 空值
-- **UrlsValue**: URL 列表
-- **FilesValue**: 文件列表
-- **StreamNodeValue**: 流式值
-
-节点之间依赖通过 `ValuesFrom` 声明：
-
-```go
-// 获取 nodeA 的全部输出
-value.NewValueFrom("nodeA", "", "")
-
-// 获取 nodeA 输出中的特定字段
-value.NewValueFrom("nodeA", "$.field", "myField")
-```
-
-### 执行层构建
-
-`executor/exec_tree.go` 通过以下步骤构建执行层：
-
-1. 从最后一个节点（结束节点）开始
-2. 通过 `ValuesFrom` 递归发现依赖
-3. 将没有未解决依赖的节点分到同一层
-4. 每层并行执行，完成后进入下一层
-
-**同一层中的所有节点并发执行**，充分利用多核。
-
-### 模板引擎
-
-LLMNode 使用 Go 的 `text/template` 包，支持两种语法：
-
-- `{{.fieldName}}` - 标准 Go 模板语法
-- `${variable}` - 替代的美元花括号语法（内部自动转换）
-
-## 主要特性
-
-### Go 并发模式
-
-使用 Go 原生并发原语：
-
-- **Goroutine**: 原生轻量级线程并发执行节点
-- **Channel**: 用于异步结果传递
-- **sync.Map**: 线程安全的节点值存储
-- **sync.WaitGroup**: 等待并发任务完成
-- **Worker Pool**: 可限制最大并发数
-
-### 核心组件
-
-1. **Workflow**: 工作流定义，持有节点序列
-2. **Agent**: 代理，包装工作流和配置（缓存路径、最大并发）
-3. **AgentExecutor**: 代理执行器，支持同步和异步执行
-4. **Node**: 节点接口，所有节点都必须实现
-5. **NodeValue**: 多态值系统，支持路径查找
-
-### 节点类型
-
-- **InputNode**: 输入节点
-- **OutputNode**: 输出节点
-- **FunctionNode**: 函数节点
-- **IFNode**: 条件节点（支持 Then/Else 分支）
-- **IterationNode**: 迭代节点（批量处理）
-- **LLMNode**: LLM节点（支持模板和缓存）
-- **ImageGenerationNode**: 图片生成节点
-
-## 使用示例
-
-### 简单示例
+### Hello World
 
 ```go
 package main
 
 import (
     "fmt"
-    "log"
-
     ai_agent "github.com/chuccp/ai-agent"
+    "github.com/chuccp/ai-agent/executor"
     "github.com/chuccp/ai-agent/node"
     "github.com/chuccp/ai-agent/value"
 )
 
 func main() {
-    // 创建函数节点 - 处理输入
     processNode := node.NewFunctionNodeBuilder("process").
         ExecFunc(func(state *node.State) (value.NodeValue, error) {
-            rootValue := state.GetRootValue()
-            name := rootValue.GetString("name")
-
+            name := state.GetRootValue().GetString("name")
             result := value.NewObjectValue()
             result.PutString("greeting", "Hello, "+name+"!")
             return result, nil
-        }).
-        Build()
+        }).Build()
 
-    // 创建输出节点 - 依赖 process 节点的输出
-    outputNode := node.NewOutputNodeBuilder("output").
-        ValuesFrom(value.NewValueFrom("process", "", "")).
-        OutFunc(func(nodeValue value.NodeValue) {
-            fmt.Println("Output:", nodeValue.String())
-        }).
-        Build()
+    workflow := ai_agent.Of(processNode)
+    ag := ai_agent.NewAgentBuilder("hello-agent").Workflow(workflow).Build()
+    exec := ai_agent.NewAgentExecutor(ag, &executor.Config{MaxConcurrency: 2})
 
-    // 创建工作流和代理
-    workflow := ai_agent.Of(processNode, outputNode)
-    ag := ai_agent.NewAgentBuilder("hello-agent").
-        Workflow(workflow).
-        Build()
-
-    // 执行
-    execConfig := &executor.Config{
-        MaxConcurrency: 2,
-    }
-    exec := ai_agent.NewAgentExecutor(ag, execConfig)
     input := value.NewObjectValue()
     input.PutString("name", "World")
 
-    response, err := exec.Exec(input)
-    if err != nil {
-        log.Fatal(err)
-    }
-
-    fmt.Println("Success:", response.Success)
+    response, _ := exec.Exec(input)
+    fmt.Println(response.NodeValue.(*value.ObjectValue).GetString("greeting"))
+    // Output: Hello, World!
 }
 ```
 
-### 条件分支示例 (IFNode)
+---
+
+## Architecture
+
+```
+Agent → Workflow → NodeExecutor → Nodes (auto-layered parallel execution)
+```
+
+1. **Agent** wraps a Workflow with configuration
+2. **Workflow** holds a sequence of Nodes
+3. **NodeExecutor** builds execution layers by analyzing `ValueFrom` dependencies
+4. **Nodes in the same layer execute concurrently** via goroutines
+
+### Execution Layer Building
+
+```
+NodeA ──┐
+        ├──→ NodeC (depends on A + B, runs after both complete)
+NodeB ──┘
+
+Layer 1: [NodeA, NodeB]  ← run in parallel
+Layer 2: [NodeC]          ← runs after Layer 1
+```
+
+---
+
+## Node Types
+
+| Node | Description |
+|------|-------------|
+| **FunctionNode** | Custom logic via `ExecFunc` |
+| **IFNode** | Conditional branching with Then/Else workflows |
+| **IterationNode** | Parallel batch processing over array input |
+| **OrderIterationNode** | Sequential batch processing over array input |
+| **LLMNode** | Template-based LLM calls with caching support |
+| **ImageGenerationNode** | Image generation with template prompts |
+| **InputNode** | Entry point, parses root parameters |
+| **OutputNode** | Exit point with optional output transformation |
+
+---
+
+## Core Features
+
+### 1. Declarative Dependencies → Automatic Parallelism
+
+Nodes declare what data they need. The engine builds the DAG and executes independent nodes in parallel.
 
 ```go
-// 条件节点：根据输入决定走哪个分支
-ifNode, err := node.NewIFNodeBuilder("check").
+// nodeA and nodeB have no dependencies → they run in parallel
+nodeA := node.NewFunctionNodeBuilder("nodeA").
+    ExecFunc(func(state *node.State) (value.NodeValue, error) {
+        res := value.NewObjectValue()
+        res.PutString("data", "from A")
+        return res, nil
+    }).Build()
+
+nodeB := node.NewFunctionNodeBuilder("nodeB").
+    ExecFunc(func(state *node.State) (value.NodeValue, error) {
+        res := value.NewObjectValue()
+        res.PutString("data", "from B")
+        return res, nil
+    }).Build()
+
+// nodeC depends on both nodeA and nodeB → runs after they complete
+nodeC := node.NewFunctionNodeBuilder("nodeC").
+    ValuesFrom(
+        value.NewValueFrom("nodeA", "", ""),
+        value.NewValueFrom("nodeB", "", ""),
+    ).
+    ExecFunc(func(state *node.State) (value.NodeValue, error) {
+        ctx := state.GetWorkflowContext()
+        dataA := ctx.GetNodeValue("nodeA").(*value.ObjectValue).GetString("data")
+        dataB := ctx.GetNodeValue("nodeB").(*value.ObjectValue).GetString("data")
+
+        res := value.NewObjectValue()
+        res.PutString("merged", dataA + " + " + dataB)
+        return res, nil
+    }).Build()
+
+workflow := ai_agent.Of(nodeA, nodeB, nodeC)
+```
+
+### 2. Conditional Branching (IFNode)
+
+```go
+ifNode, _ := node.NewIFNodeBuilder("check").
     Condition(func(ctx node.WorkflowContext) bool {
-        rootVal := ctx.GetRootValue()
-        score := int(rootVal.GetNumber("score"))
-        return score >= 60
+        return ctx.GetRootValue().GetInt("score") >= 60
     }).
     Then(ai_agent.Of(
         node.NewFunctionNodeBuilder("pass").
@@ -236,114 +180,127 @@ ifNode, err := node.NewIFNodeBuilder("check").
                 res.PutString("result", "Failed")
                 return res, nil
             }).Build(),
-    )).
-    ValuesFrom(value.NewValueFrom("", "score", "score")).
-    Build()
+    )).Build()
 ```
 
-### 并行执行示例
-
-多个节点没有依赖关系会自动在同一层并行执行：
+### 3. Parallel Iteration (IterationNode)
 
 ```go
-// nodeA 和 nodeB 没有依赖，会并发执行
-nodeA := node.NewFunctionNodeBuilder("nodeA").
-    ExecFunc(func(state *node.State) (value.NodeValue, error) {
-        res := value.NewObjectValue()
-        res.PutNumber("value", 1)
-        return res, nil
-    }).Build()
-
-nodeB := node.NewFunctionNodeBuilder("nodeB").
-    ExecFunc(func(state *node.State) (value.NodeValue, error) {
-        res := value.NewObjectValue()
-        res.PutNumber("value", 2)
-        return res, nil
-    }).Build()
-
-// nodeC 依赖 nodeA 和 nodeB，执行前会等待两者完成
-nodeC := node.NewFunctionNodeBuilder("nodeC").
-    ValuesFrom(
-        value.NewValueFrom("nodeA", "", ""),
-        value.NewValueFrom("nodeB", "", ""),
-    ).
-    ExecFunc(func(state *node.State) (value.NodeValue, error) {
-        ctx := state.GetWorkflowContext()
-        valA := int(ctx.GetNodeValue("nodeA").(*value.ObjectValue).GetNumber("value"))
-        valB := int(ctx.GetNodeValue("nodeB").(*value.ObjectValue).GetNumber("value"))
-
-        res := value.NewObjectValue()
-        res.PutNumber("sum", float64(valA+valB))
-        return res, nil
-    }).
-    Build()
-
-workflow := ai_agent.Of(nodeA, nodeB, nodeC)
-```
-
-### 迭代处理示例 (IterationNode)
-
-```go
-// 对数组中每个元素并行处理
-processItem := node.NewFunctionNodeBuilder("processItem").
-    ExecFunc(func(state *node.State) (value.NodeValue, error) {
-        item := int(state.GetRootValue().GetNumber("item"))
-
-        result := value.NewObjectValue()
-        result.PutNumber("squared", float64(item*item))
-        return result, nil
-    }).
-    Build()
-
-// 创建迭代节点，对输入数组的每个元素并行执行子工作流
+// Process each item in the array in parallel
 iterationNode := node.NewIterationNodeBuilder("iterate").
     IterationFrom(value.NewValueFrom("", "items", "")).
-    Workflow(ai_agent.Of(processItem)).
-    Build()
-
-workflow := ai_agent.Of(iterationNode)
+    Workflow(ai_agent.Of(
+        node.NewFunctionNodeBuilder("processItem").
+            ExecFunc(func(state *node.State) (value.NodeValue, error) {
+                item := state.GetRootValue().GetInt("item")
+                res := value.NewObjectValue()
+                res.PutNumber("squared", float64(item*item))
+                return res, nil
+            }).Build(),
+    )).Build()
 ```
 
-
-## 安装
-
-```bash
-go get github.com/chuccp/ai-agent
-```
-
-## 运行测试
-
-```bash
-# 运行所有测试
-go test ./...
-
-# 运行特定测试
-go test -v -run TestIFNode ./...
-
-# 运行示例
-go run ./examples/main.go
-
-# 整理依赖
-go mod tidy
-```
-
-## 异步执行示例
+### 4. LLMNode with Template Engine
 
 ```go
-// 异步执行，返回结果通道
-resultChan := exec.ExecAsync(input)
-result := <-resultChan
-if result.Err != nil {
-    log.Fatal(result.Err)
-}
-fmt.Println("Result:", result.Response)
+llmNode := node.NewLLMNodeBuilder("llm").
+    SystemTemplate("You are a helpful assistant.").
+    UserTemplate("Hello, ${name}! Your order count is ${count}.").
+    LLMFunction(func(state *node.State, urls *value.UrlsValue, systemPrompt, userPrompt string, format out.OutFormat, stream bool) (value.NodeValue, error) {
+        // systemPrompt: "You are a helpful assistant."
+        // userPrompt:   "Hello, Alice! Your order count is 100."
+        return value.NewTextValue("Mock response"), nil
+    }).
+    Build()
 ```
 
-## 依赖
+Supports both `${variable}` and `{{.variable}}` template syntax.
 
-- Go 1.22+
-- github.com/google/uuid
-- emperror.dev/errors
+### 5. Async Execution
+
+```go
+// Async execution
+result := exec.ExecAsync(input)
+if result.Error != nil {
+    log.Fatal(result.Error)
+}
+fmt.Println(result.Response.Success)
+```
+
+---
+
+## Value System
+
+Rich polymorphic value types with path-based lookup:
+
+```go
+obj := value.NewObjectValue()
+obj.PutString("name", "Alice").
+    PutNumber("age", 30).
+    PutBool("active", true)
+
+// Fluent chaining (all Put* methods return *ObjectValue)
+obj.PutObject("address", value.NewObjectValue().
+    PutString("city", "Beijing").
+    PutString("country", "China"),
+)
+
+// Path-based lookup
+obj.FindValue("address.city")  // TextValue("Beijing")
+obj.FindValue("$.name")        // TextValue("Alice")
+```
+
+Types: `ObjectValue` | `ArrayValue` | `TextValue` | `BoolValue` | `NumberValue` (int/uint/float variants) | `NullValue` | `UrlsValue` | `FilesValue` | `StreamNodeValue`
+
+---
+
+## Project Structure
+
+```
+ai-agent/
+├── agent.go                 # Agent, Workflow, AgentExecutor
+├── node/
+│   ├── interface.go         # Core interfaces (Node, WorkflowContext, WorkflowInterface)
+│   ├── node.go              # BaseNode, State
+│   ├── basic_nodes.go       # InputNode, OutputNode, FunctionNode
+│   ├── if_node.go           # IFNode (conditional branching)
+│   ├── iteration_node.go    # IterationNode (parallel batch)
+│   ├── order_iteration_node.go # OrderIterationNode (sequential batch)
+│   ├── llm_node.go          # LLMNode (template + cache)
+│   └── image_generation_node.go # ImageGenerationNode
+├── executor/
+│   ├── node_executor.go     # Node execution with goroutine parallelism
+│   ├── group_executor.go    # Batch execution
+│   └── exec_tree.go         # DAG layer building from dependencies
+├── value/
+│   ├── node_value.go        # NodeValue interface + all value types
+│   ├── object_value.go      # ObjectValue with template engine
+│   └── array_value.go       # ArrayValue
+├── graph/                   # Graph visualization
+├── cache/                   # LLM result caching
+├── pool/                    # Worker pool (GOPool)
+├── out/                     # Output formatting (text/json)
+├── model/                   # LLM & Image generation model interfaces
+├── types/                   # Type definitions
+└── util/                    # Utilities
+```
+
+---
+
+## Tests
+
+```bash
+# Run all tests
+go test ./...
+
+# Run specific test
+go test -v -run TestIFNode ./...
+
+# Run with coverage
+go test -cover ./...
+```
+
+---
 
 ## License
 
