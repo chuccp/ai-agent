@@ -6,24 +6,130 @@ import (
 	"sync"
 )
 
+// ResourcesValue 通用资源值，可存放任意资源标识（URL、文件路径、数据库ID等）
+type ResourcesValue struct {
+	NodeValueBase
+	resources []string
+	mu        sync.RWMutex
+}
+
+// NewResourcesValue 创建资源值
+func NewResourcesValue() *ResourcesValue {
+	return &ResourcesValue{
+		resources: make([]string, 0),
+	}
+}
+
+// NewResourcesValueFromSlice 从字符串切片创建资源值
+func NewResourcesValueFromSlice(resources []string) *ResourcesValue {
+	rv := NewResourcesValue()
+	rv.resources = append(rv.resources, resources...)
+	return rv
+}
+
+func (r *ResourcesValue) IsResources() bool {
+	return true
+}
+
+func (r *ResourcesValue) AsResources() *ResourcesValue {
+	return r
+}
+
+// Add 添加资源
+func (r *ResourcesValue) Add(resource string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.resources = append(r.resources, resource)
+}
+
+// Adds 添加多个资源
+func (r *ResourcesValue) Adds(resources []string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.resources = append(r.resources, resources...)
+}
+
+// AddAll 添加所有资源
+func (r *ResourcesValue) AddAll(other *ResourcesValue) {
+	if other == nil {
+		return
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	other.mu.RLock()
+	defer other.mu.RUnlock()
+	r.resources = append(r.resources, other.resources...)
+}
+
+// Get 获取资源
+func (r *ResourcesValue) Get(index int) string {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	if index < 0 || index >= len(r.resources) {
+		return ""
+	}
+	return r.resources[index]
+}
+
+// Size 获取大小
+func (r *ResourcesValue) Size() int {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return len(r.resources)
+}
+
+// IsEmpty 是否为空
+func (r *ResourcesValue) IsEmpty() bool {
+	return r.Size() == 0
+}
+
+// Resources 获取所有资源
+func (r *ResourcesValue) Resources() []string {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	result := make([]string, len(r.resources))
+	copy(result, r.resources)
+	return result
+}
+
+// String 返回字符串表示
+func (r *ResourcesValue) String() string {
+	return string(r.ToJSON())
+}
+
+// ToJSON 返回JSON字符串表示
+func (r *ResourcesValue) ToJSON() json.RawMessage {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	data, _ := json.Marshal(r.resources)
+	return data
+}
+
 // UrlsValue URL值
 type UrlsValue struct {
-	NodeValueBase
-	urls []url.URL
-	mu   sync.RWMutex
+	*ResourcesValue
 }
 
 // NewUrlsValue 创建URL值
 func NewUrlsValue() *UrlsValue {
 	return &UrlsValue{
-		urls: make([]url.URL, 0),
+		ResourcesValue: NewResourcesValue(),
 	}
 }
 
-// NewUrlsValueFromSlice 从切片创建URL值
+// NewUrlsValueFromSlice 从URL切片创建URL值
 func NewUrlsValueFromSlice(urls []url.URL) *UrlsValue {
 	uv := NewUrlsValue()
-	uv.urls = append(uv.urls, urls...)
+	for _, u := range urls {
+		uv.ResourcesValue.resources = append(uv.ResourcesValue.resources, u.String())
+	}
+	return uv
+}
+
+// NewUrlsValueFromStrings 从字符串切片创建URL值
+func NewUrlsValueFromStrings(strs []string) *UrlsValue {
+	uv := NewUrlsValue()
+	uv.ResourcesValue.resources = append(uv.ResourcesValue.resources, strs...)
 	return uv
 }
 
@@ -31,29 +137,26 @@ func (u *UrlsValue) IsUrls() bool {
 	return true
 }
 
-func (u *UrlsValue) IsFiles() bool {
-	return false
-}
-
 func (u *UrlsValue) AsUrls() *UrlsValue {
 	return u
 }
 
-func (u *UrlsValue) AsFiles() *FilesValue {
-	return nil
+// Add 添加URL
+func (u *UrlsValue) Add(v url.URL) {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	u.ResourcesValue.resources = append(u.ResourcesValue.resources, v.String())
 }
 
-// Add 添加URL
-func (u *UrlsValue) Add(url url.URL) {
+// Adds 添加多个URL
+func (u *UrlsValue) Adds(items []url.URL) {
 	u.mu.Lock()
 	defer u.mu.Unlock()
-	u.urls = append(u.urls, url)
+	for _, v := range items {
+		u.ResourcesValue.resources = append(u.ResourcesValue.resources, v.String())
+	}
 }
-func (u *UrlsValue) Adds(urls []url.URL) {
-	u.mu.Lock()
-	defer u.mu.Unlock()
-	u.urls = append(u.urls, urls...)
-}
+
 func StringToURL(value string) (*url.URL, error) {
 	return url.Parse(value)
 }
@@ -67,66 +170,53 @@ func (u *UrlsValue) AddAll(other *UrlsValue) {
 	defer u.mu.Unlock()
 	other.mu.RLock()
 	defer other.mu.RUnlock()
-	u.urls = append(u.urls, other.urls...)
+	u.ResourcesValue.resources = append(u.ResourcesValue.resources, other.ResourcesValue.resources...)
 }
 
 // Get 获取URL
 func (u *UrlsValue) Get(index int) *url.URL {
 	u.mu.RLock()
 	defer u.mu.RUnlock()
-	if index < 0 || index >= len(u.urls) {
+	if index < 0 || index >= len(u.ResourcesValue.resources) {
 		return nil
 	}
-	return &u.urls[index]
+	parsed, err := url.Parse(u.ResourcesValue.resources[index])
+	if err != nil {
+		return nil
+	}
+	return parsed
 }
 
 // Size 获取大小
 func (u *UrlsValue) Size() int {
-	u.mu.RLock()
-	defer u.mu.RUnlock()
-	return len(u.urls)
+	return u.ResourcesValue.Size()
 }
 
 // IsEmpty 是否为空
 func (u *UrlsValue) IsEmpty() bool {
-	return u.Size() == 0
+	return u.ResourcesValue.IsEmpty()
 }
 
 // URLs 获取所有URL
 func (u *UrlsValue) URLs() []url.URL {
-	u.mu.RLock()
-	defer u.mu.RUnlock()
-	result := make([]url.URL, len(u.urls))
-	copy(result, u.urls)
+	strs := u.ResourcesValue.Resources()
+	result := make([]url.URL, 0, len(strs))
+	for _, s := range strs {
+		if parsed, err := url.Parse(s); err == nil {
+			result = append(result, *parsed)
+		}
+	}
 	return result
 }
 
 // Strings 获取所有URL字符串
 func (u *UrlsValue) Strings() []string {
-	u.mu.RLock()
-	defer u.mu.RUnlock()
-	result := make([]string, 0, len(u.urls))
-	for _, url := range u.urls {
-		result = append(result, url.String())
-	}
-	return result
-}
-
-// String 返回字符串表示
-func (u *UrlsValue) String() string {
-	return string(u.ToJSON())
+	return u.ResourcesValue.Resources()
 }
 
 // ToJSON 返回JSON字符串表示
 func (u *UrlsValue) ToJSON() json.RawMessage {
-	u.mu.RLock()
-	defer u.mu.RUnlock()
-	strs := make([]string, len(u.urls))
-	for i, url := range u.urls {
-		strs[i] = url.String()
-	}
-	data, _ := json.Marshal(strs)
-	return data
+	return u.ResourcesValue.ToJSON()
 }
 
 // FilesValue 文件值
@@ -144,11 +234,7 @@ func NewFilesValue() *FilesValue {
 // NewFilesValueFromPaths 从路径创建文件值
 func NewFilesValueFromPaths(paths []string) *FilesValue {
 	fv := NewFilesValue()
-	for _, path := range paths {
-		if u, err := url.Parse(path); err == nil {
-			fv.urls = append(fv.urls, *u)
-		}
-	}
+	fv.ResourcesValue.resources = append(fv.ResourcesValue.resources, paths...)
 	return fv
 }
 
@@ -159,48 +245,42 @@ func (f *FilesValue) IsFiles() bool {
 func (f *FilesValue) AsFiles() *FilesValue {
 	return f
 }
+
 func (f *FilesValue) AsUrls() *UrlsValue {
-	return NewUrlsValueFromSlice(f.urls)
+	uv := NewUrlsValue()
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+	uv.ResourcesValue.resources = append(uv.ResourcesValue.resources, f.ResourcesValue.resources...)
+	return uv
 }
 
 // Paths 获取所有文件路径
 func (f *FilesValue) Paths() []string {
-	f.mu.RLock()
-	defer f.mu.RUnlock()
-	result := make([]string, 0, len(f.urls))
-	for _, url := range f.urls {
-		result = append(result, url.Path)
-	}
-	return result
-}
-
-// String 返回字符串表示
-func (f *FilesValue) String() string {
-	return string(f.ToJSON())
+	return f.ResourcesValue.Resources()
 }
 
 // ToJSON 返回JSON字符串表示，返回文件路径数组
 func (f *FilesValue) ToJSON() json.RawMessage {
-	f.mu.RLock()
-	defer f.mu.RUnlock()
-	paths := make([]string, len(f.urls))
-	for i, url := range f.urls {
-		paths[i] = url.Path
-	}
-	data, _ := json.Marshal(paths)
-	return data
+	return f.ResourcesValue.ToJSON()
 }
 
 // AddAllFiles 添加所有文件值
 func (f *FilesValue) AddAllFiles(other *FilesValue) {
-	if other == nil {
-		return
+	f.ResourcesValue.AddAll(other.ResourcesValue)
+}
+
+// UrlsValueFrom URL值来源
+type UrlsValueFrom struct {
+	NodeID string
+	From   string
+}
+
+// NewUrlsValueFrom 创建URL值来源
+func NewUrlsValueFrom(nodeID, from string) *UrlsValueFrom {
+	return &UrlsValueFrom{
+		NodeID: nodeID,
+		From:   from,
 	}
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	other.mu.RLock()
-	defer other.mu.RUnlock()
-	f.urls = append(f.urls, other.urls...)
 }
 
 // FilesValueFrom 文件值来源
@@ -215,19 +295,5 @@ func NewFilesValueFrom(nodeID, from string) *FilesValueFrom {
 			NodeID: nodeID,
 			From:   from,
 		},
-	}
-}
-
-// UrlsValueFrom URL值来源
-type UrlsValueFrom struct {
-	NodeID string
-	From   string
-}
-
-// NewUrlsValueFrom 创建URL值来源
-func NewUrlsValueFrom(nodeID, from string) *UrlsValueFrom {
-	return &UrlsValueFrom{
-		NodeID: nodeID,
-		From:   from,
 	}
 }

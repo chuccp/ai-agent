@@ -19,6 +19,7 @@ type NodeValue interface {
 	IsUrls() bool
 	IsFiles() bool
 	IsStream() bool
+	IsResources() bool
 
 	AsObject() *ObjectValue
 	AsArray() *ArrayValue
@@ -28,6 +29,7 @@ type NodeValue interface {
 	AsUrls() *UrlsValue
 	AsFiles() *FilesValue
 	AsStream() *StreamNodeValue
+	AsResources() *ResourcesValue
 
 	FindValue(path string) NodeValue
 	ToJSON() json.RawMessage
@@ -194,6 +196,7 @@ func (NodeValueBase) IsNull() bool               { return false }
 func (NodeValueBase) IsUrls() bool               { return false }
 func (NodeValueBase) IsFiles() bool              { return false }
 func (NodeValueBase) IsStream() bool             { return false }
+func (NodeValueBase) IsResources() bool          { return false }
 func (NodeValueBase) AsObject() *ObjectValue     { panic("not an object") }
 func (NodeValueBase) AsArray() *ArrayValue       { panic("not an array") }
 func (NodeValueBase) AsText() *TextValue         { panic("not text") }
@@ -202,6 +205,7 @@ func (NodeValueBase) AsNumber() *NumberValue     { panic("not number") }
 func (NodeValueBase) AsUrls() *UrlsValue         { panic("not urls") }
 func (NodeValueBase) AsFiles() *FilesValue       { panic("not files") }
 func (NodeValueBase) AsStream() *StreamNodeValue { panic("not a stream") }
+func (NodeValueBase) AsResources() *ResourcesValue { panic("not resources") }
 func (NodeValueBase) FindValue(path string) NodeValue {
 	return FindValueByPath(nil, path)
 }
@@ -221,6 +225,7 @@ var _ NodeValue = (*ObjectValue)(nil)
 var _ NodeValue = (*ArrayValue)(nil)
 var _ NodeValue = (*UrlsValue)(nil)
 var _ NodeValue = (*FilesValue)(nil)
+var _ NodeValue = (*ResourcesValue)(nil)
 var _ NodeValue = (*StreamNodeValue)(nil)
 
 // StreamNodeValue 流节点值
