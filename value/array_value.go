@@ -234,6 +234,16 @@ func ParseArrayValue(data []byte) (*ArrayValue, error) {
 	return arr, nil
 }
 
+func (a *ArrayValue) Clone() NodeValue {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	clone := NewArrayValue()
+	for _, v := range a.values {
+		clone.values = append(clone.values, cloneNodeValue(v))
+	}
+	return clone
+}
+
 // FindMaxByScore 根据评分函数找到得分最高的元素及其得分
 // 返回值：元素、得分、是否找到
 // scoreFunc: 评分函数，返回元素的得分值

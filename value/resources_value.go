@@ -186,6 +186,14 @@ func (r *ResourcesValue) Filter(fn func(index int, resource string) bool) *Resou
 	return newRV
 }
 
+func (r *ResourcesValue) Clone() NodeValue {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	clone := NewResourcesValue()
+	clone.resources = append(clone.resources, r.resources...)
+	return clone
+}
+
 // String 返回字符串表示
 func (r *ResourcesValue) String() string {
 	return string(r.ToJSON())
@@ -233,6 +241,14 @@ func (u *UrlsValue) IsUrls() bool {
 
 func (u *UrlsValue) AsUrls() *UrlsValue {
 	return u
+}
+
+func (u *UrlsValue) Clone() NodeValue {
+	u.mu.RLock()
+	defer u.mu.RUnlock()
+	clone := NewUrlsValue()
+	clone.ResourcesValue.resources = append(clone.ResourcesValue.resources, u.ResourcesValue.resources...)
+	return clone
 }
 
 // Add 添加URL
@@ -338,6 +354,14 @@ func (f *FilesValue) IsFiles() bool {
 
 func (f *FilesValue) AsFiles() *FilesValue {
 	return f
+}
+
+func (f *FilesValue) Clone() NodeValue {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+	clone := NewFilesValue()
+	clone.ResourcesValue.resources = append(clone.ResourcesValue.resources, f.ResourcesValue.resources...)
+	return clone
 }
 
 func (f *FilesValue) AsUrls() *UrlsValue {

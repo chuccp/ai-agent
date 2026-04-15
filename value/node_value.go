@@ -31,6 +31,8 @@ type NodeValue interface {
 	AsStream() *StreamNodeValue
 	AsResources() *ResourcesValue
 
+	Clone() NodeValue
+
 	FindValue(path string) NodeValue
 	ToJSON() json.RawMessage
 	String() string
@@ -187,24 +189,24 @@ func fromInterface(v any) NodeValue {
 // NodeValueBase 基础实现
 type NodeValueBase struct{}
 
-func (NodeValueBase) IsObject() bool             { return false }
-func (NodeValueBase) IsArray() bool              { return false }
-func (NodeValueBase) IsText() bool               { return false }
-func (NodeValueBase) IsBool() bool               { return false }
-func (NodeValueBase) IsNumber() bool             { return false }
-func (NodeValueBase) IsNull() bool               { return false }
-func (NodeValueBase) IsUrls() bool               { return false }
-func (NodeValueBase) IsFiles() bool              { return false }
-func (NodeValueBase) IsStream() bool             { return false }
-func (NodeValueBase) IsResources() bool          { return false }
-func (NodeValueBase) AsObject() *ObjectValue     { panic("not an object") }
-func (NodeValueBase) AsArray() *ArrayValue       { panic("not an array") }
-func (NodeValueBase) AsText() *TextValue         { panic("not text") }
-func (NodeValueBase) AsBool() *BoolValue         { panic("not bool") }
-func (NodeValueBase) AsNumber() *NumberValue     { panic("not number") }
-func (NodeValueBase) AsUrls() *UrlsValue         { panic("not urls") }
-func (NodeValueBase) AsFiles() *FilesValue       { panic("not files") }
-func (NodeValueBase) AsStream() *StreamNodeValue { panic("not a stream") }
+func (NodeValueBase) IsObject() bool               { return false }
+func (NodeValueBase) IsArray() bool                { return false }
+func (NodeValueBase) IsText() bool                 { return false }
+func (NodeValueBase) IsBool() bool                 { return false }
+func (NodeValueBase) IsNumber() bool               { return false }
+func (NodeValueBase) IsNull() bool                 { return false }
+func (NodeValueBase) IsUrls() bool                 { return false }
+func (NodeValueBase) IsFiles() bool                { return false }
+func (NodeValueBase) IsStream() bool               { return false }
+func (NodeValueBase) IsResources() bool            { return false }
+func (NodeValueBase) AsObject() *ObjectValue       { panic("not an object") }
+func (NodeValueBase) AsArray() *ArrayValue         { panic("not an array") }
+func (NodeValueBase) AsText() *TextValue           { panic("not text") }
+func (NodeValueBase) AsBool() *BoolValue           { panic("not bool") }
+func (NodeValueBase) AsNumber() *NumberValue       { panic("not number") }
+func (NodeValueBase) AsUrls() *UrlsValue           { panic("not urls") }
+func (NodeValueBase) AsFiles() *FilesValue         { panic("not files") }
+func (NodeValueBase) AsStream() *StreamNodeValue   { panic("not a stream") }
 func (NodeValueBase) AsResources() *ResourcesValue { panic("not resources") }
 func (NodeValueBase) FindValue(path string) NodeValue {
 	return FindValueByPath(nil, path)
@@ -284,6 +286,10 @@ func (s *StreamNodeValue) IsDone() bool {
 	return s.done
 }
 
+func (s *StreamNodeValue) Clone() NodeValue {
+	return NullValue
+}
+
 // String 返回字符串表示
 func (s *StreamNodeValue) String() string {
 	return "stream"
@@ -311,6 +317,10 @@ type NullNodeValue struct {
 
 func (n *NullNodeValue) IsNull() bool {
 	return true
+}
+
+func (n *NullNodeValue) Clone() NodeValue {
+	return NullValue
 }
 
 func (n *NullNodeValue) String() string {
@@ -363,6 +373,10 @@ func (t *TextValue) Equals(other NodeValue) bool {
 	return false
 }
 
+func (t *TextValue) Clone() NodeValue {
+	return NewTextValue(t.Text)
+}
+
 // BoolValue 布尔值
 type BoolValue struct {
 	NodeValueBase
@@ -390,6 +404,10 @@ func (b *BoolValue) ToJSON() json.RawMessage {
 		return json.RawMessage("true")
 	}
 	return json.RawMessage("false")
+}
+
+func (b *BoolValue) Clone() NodeValue {
+	return NewBoolValue(b.Value)
 }
 
 // NumberKind 表示数字的具体类型
@@ -917,6 +935,37 @@ func (n *NumberValue) Equals(other *NumberValue) bool {
 	return n.Float64() == other.Float64()
 }
 
+func (n *NumberValue) Clone() NodeValue {
+	switch n.kind {
+	case KindInt:
+		return NewIntValue(n.value.(int))
+	case KindInt8:
+		return NewInt8Value(n.value.(int8))
+	case KindInt16:
+		return NewInt16Value(n.value.(int16))
+	case KindInt32:
+		return NewInt32Value(n.value.(int32))
+	case KindInt64:
+		return NewInt64Value(n.value.(int64))
+	case KindUint:
+		return NewUintValue(n.value.(uint))
+	case KindUint8:
+		return NewUint8Value(n.value.(uint8))
+	case KindUint16:
+		return NewUint16Value(n.value.(uint16))
+	case KindUint32:
+		return NewUint32Value(n.value.(uint32))
+	case KindUint64:
+		return NewUint64Value(n.value.(uint64))
+	case KindFloat32:
+		return NewFloat32Value(n.value.(float32))
+	case KindFloat64:
+		return NewFloat64Value(n.value.(float64))
+	default:
+		return NewFloat64Value(n.Float64())
+	}
+}
+
 // ParseNumber 从字符串解析数值
 func ParseNumber(s string) (*NumberValue, error) {
 	// 先尝试解析为整数
@@ -1009,62 +1058,10 @@ func Clone(v NodeValue) NodeValue {
 	if v == nil {
 		return nil
 	}
+	return v.Clone()
+}
 
-	switch {
-	case v.IsText():
-		return NewTextValue(v.AsText().Text)
-	case v.IsNumber():
-		nv := v.AsNumber()
-		// 克隆时保留原始类型
-		switch nv.Kind() {
-		case KindInt:
-			return NewIntValue(nv.Int())
-		case KindInt8:
-			return NewInt8Value(nv.Int8())
-		case KindInt16:
-			return NewInt16Value(nv.Int16())
-		case KindInt32:
-			return NewInt32Value(nv.Int32())
-		case KindInt64:
-			return NewInt64Value(nv.Int64())
-		case KindUint:
-			return NewUintValue(nv.Uint())
-		case KindUint8:
-			return NewUint8Value(nv.Uint8())
-		case KindUint16:
-			return NewUint16Value(nv.Uint16())
-		case KindUint32:
-			return NewUint32Value(nv.Uint32())
-		case KindUint64:
-			return NewUint64Value(nv.Uint64())
-		case KindFloat32:
-			return NewFloat32Value(nv.Float32())
-		case KindFloat64:
-			return NewFloat64Value(nv.Float64())
-		default:
-			return NewFloat64Value(nv.Float64())
-		}
-	case v.IsBool():
-		return NewBoolValue(v.AsBool().Value)
-	case v.IsNull():
-		return NullValue
-	case v.IsObject():
-		obj := v.AsObject()
-		newObj := NewObjectValue()
-		obj.ForEach(func(key string, val NodeValue) bool {
-			newObj.Put(key, Clone(val))
-			return true
-		})
-		return newObj
-	case v.IsArray():
-		arr := v.AsArray()
-		newArr := NewArrayValue()
-		arr.ForEach(func(index int, val NodeValue) bool {
-			newArr.Add(Clone(val))
-			return true
-		})
-		return newArr
-	default:
-		return NullValue
-	}
+// cloneNodeValue is an internal alias to Clone for use within the value package
+func cloneNodeValue(v NodeValue) NodeValue {
+	return Clone(v)
 }

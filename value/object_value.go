@@ -283,6 +283,15 @@ func (o *ObjectValue) Keys() []string {
 	}
 	return keys
 }
+func (o *ObjectValue) Clone() NodeValue {
+	o.mu.RLock()
+	defer o.mu.RUnlock()
+	clone := NewObjectValue()
+	for k, v := range o.data {
+		clone.data[k] = cloneNodeValue(v)
+	}
+	return clone
+}
 
 // ForEach 遍历
 func (o *ObjectValue) ForEach(fn func(key string, value NodeValue) bool) {
