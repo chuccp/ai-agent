@@ -2,7 +2,6 @@ package node
 
 import (
 	"log"
-	"net/url"
 
 	"emperror.dev/errors"
 	"github.com/chuccp/ai-agent/graph"
@@ -11,14 +10,14 @@ import (
 )
 
 // ImageGenerationFunction 图片生成函数
-type ImageGenerationFunction func(state *State, urlsValue *value.UrlsValue, userPrompt string, maxNumber int, scale string) (value.NodeValue, error)
+type ImageGenerationFunction func(state *State, resourcesValue *value.ResourcesValue, userPrompt string, maxNumber int, scale string) (value.NodeValue, error)
 
 // ImageGenerationNode 图片生成节点
 type ImageGenerationNode struct {
 	*BaseNode
 	imageGenerationFunction ImageGenerationFunction
 	userTemplate            string
-	urlsValuesFrom          []*value.UrlsValueFrom
+	resourcesValueFrom      []*value.ResourcesValueFrom
 	maxNumber               int
 	scale                   string
 	cacheEnabled            bool
@@ -46,9 +45,9 @@ func (n *ImageGenerationNode) SetUserTemplate(template string) *ImageGenerationN
 	return n
 }
 
-// SetUrlsValuesFrom 设置URL值来源
-func (n *ImageGenerationNode) SetUrlsValuesFrom(froms ...*value.UrlsValueFrom) *ImageGenerationNode {
-	n.urlsValuesFrom = append(n.urlsValuesFrom, froms...)
+// SetResourcesValueFrom 设置资源值来源
+func (n *ImageGenerationNode) SetResourcesValueFrom(froms ...*value.ResourcesValueFrom) *ImageGenerationNode {
+	n.resourcesValueFrom = append(n.resourcesValueFrom, froms...)
 	return n
 }
 
@@ -70,35 +69,38 @@ func (n *ImageGenerationNode) SetCacheEnabled(enabled bool) *ImageGenerationNode
 	return n
 }
 
-// ParseUrlsValuesFrom 解析URL值来源
-func (n *ImageGenerationNode) ParseUrlsValuesFromWithError(state *State) (*value.UrlsValue, error) {
-	urlsValue := value.NewUrlsValue()
-	if n.urlsValuesFrom == nil {
-		return urlsValue, nil
+// ParseResourcesValuesFrom 解析资源值来源
+func (n *ImageGenerationNode) ParseResourcesValuesFromWithError(state *State) (*value.ResourcesValue, error) {
+	newResourcesValue := value.NewResourcesValue()
+	if n.resourcesValueFrom == nil {
+		return newResourcesValue, nil
 	}
 
-	for _, vf := range n.urlsValuesFrom {
+	for _, vf := range n.resourcesValueFrom {
 		nodeValue, err := state.GetNodeValueFromNodeWithError(vf.NodeID, vf.From)
 		if err != nil {
 			return nil, err
 		}
-		if nodeValue != nil && nodeValue.IsUrls() {
-			urlsValue.AddAll(nodeValue.AsUrls())
-		}
-		if nodeValue != nil && nodeValue.IsArray() {
-			nodeValue.AsArray().ForEach(func(index int, value value.NodeValue) bool {
-				if value.IsText() {
-					parse, err := url.Parse(value.AsText().Text)
-					if err == nil {
-						urlsValue.Add(*parse)
-					}
-				}
-				return true
-			})
-		}
+		if nodeValue != nil {
 
+			if nodeValue.IsResources() {
+				newResourcesValue.AddAll(nodeValue.AsResources())
+			}
+			if nodeValue.IsArray() {
+				nodeValue.AsArray().ForEach(func(index int, v value.NodeValue) bool {
+					if v.IsText() {
+						newResourcesValue.Add(v.AsText().Text)
+					}
+					return true
+				})
+			}
+			if nodeValue.IsNumber() {
+				newResourcesValue.Add(nodeValue.AsNumber().String())
+			}
+
+		}
 	}
-	return urlsValue, nil
+	return newResourcesValue, nil
 }
 
 // Exec 执行节点
@@ -108,7 +110,7 @@ func (n *ImageGenerationNode) Exec(state *State) (value.NodeValue, error) {
 	if err != nil {
 		return nil, err
 	}
-	urlsValue, err := n.ParseUrlsValuesFromWithError(state)
+	resourcesValue, err := n.ParseResourcesValuesFromWithError(state)
 	if err != nil {
 		return nil, err
 	}
@@ -131,7 +133,7 @@ func (n *ImageGenerationNode) Exec(state *State) (value.NodeValue, error) {
 	}
 
 	state.SetStatusType(types.NodeStatusRunning)
-	result, err := n.imageGenerationFunction(state, urlsValue, userPrompt, maxNumber, scale)
+	result, err := n.imageGenerationFunction(state, resourcesValue, userPrompt, maxNumber, scale)
 	log.Println("ImageGenerationNode", "Exec", "result", result, "err", err)
 	if err != nil {
 		state.SetStatusType(types.NodeStatusFailed)
@@ -144,7 +146,7 @@ func (n *ImageGenerationNode) Exec(state *State) (value.NodeValue, error) {
 		return nil, nil
 	}
 
-	if result.IsUrls() && result.AsUrls().IsEmpty() {
+	if result.IsResources() && result.AsResources().IsEmpty() {
 		state.SetStatusType(types.NodeStatusRunning)
 		return nil, nil
 	}
@@ -177,7 +179,7 @@ func (n *ImageGenerationNode) resolveScale(state *State) string {
 // GetNodeGraph 获取节点图
 func (n *ImageGenerationNode) GetNodeGraph() *graph.NodeGraph {
 	var valuesFrom []*value.ValueFrom
-	for _, vf := range n.urlsValuesFrom {
+	for _, vf := range n.resourcesValueFrom {
 		valuesFrom = append(valuesFrom, &value.ValueFrom{
 			NodeID: vf.NodeID,
 			From:   vf.From,
@@ -216,9 +218,9 @@ func (b *ImageGenerationNodeBuilder) ValuesFrom(valuesFrom ...*value.ValueFrom) 
 	return b
 }
 
-// UrlsValuesFrom 设置URL值来源
-func (b *ImageGenerationNodeBuilder) UrlsValuesFrom(froms ...*value.UrlsValueFrom) *ImageGenerationNodeBuilder {
-	b.node.SetUrlsValuesFrom(froms...)
+// ResourcesValueFrom 设置资源值来源
+func (b *ImageGenerationNodeBuilder) ResourcesValueFrom(froms ...*value.ResourcesValueFrom) *ImageGenerationNodeBuilder {
+	b.node.SetResourcesValueFrom(froms...)
 	return b
 }
 

@@ -17,7 +17,7 @@ func TestLLMNodeWithMockLLMFunction(t *testing.T) {
 		SystemTemplate("You are a helpful assistant.").
 		UserTemplate("Hello, ${name}!").
 		ValuesFrom(value.RootValueFrom("name", "name")).
-		LLMFunction(func(nodeState *State, files *value.UrlsValue, systemPrompt, userPrompt string, format out.OutFormat, stream bool) (value.NodeValue, error) {
+		LLMFunction(func(nodeState *State, resources *value.ResourcesValue, systemPrompt, userPrompt string, format out.OutFormat, stream bool) (value.NodeValue, error) {
 			assert.Equal(t, "You are a helpful assistant.", systemPrompt)
 			assert.Equal(t, "Hello, Alice!", userPrompt)
 
@@ -48,7 +48,7 @@ func TestLLMNodeWithMockLLMFunction(t *testing.T) {
 func TestLLMNodeNoTemplateError(t *testing.T) {
 	llmNode := NewLLMNodeBuilder("llm").
 		ValuesFrom(value.RootValueFrom("name", "name")).
-		LLMFunction(func(nodeState *State, files *value.UrlsValue, systemPrompt, userPrompt string, format out.OutFormat, stream bool) (value.NodeValue, error) {
+		LLMFunction(func(nodeState *State, files *value.ResourcesValue, systemPrompt, userPrompt string, format out.OutFormat, stream bool) (value.NodeValue, error) {
 			return value.NullValue, nil
 		}).
 		FormatOut(out.NewTextOutFormat()).
@@ -78,7 +78,7 @@ func TestLLMNodeNoFormatOutError(t *testing.T) {
 		SystemTemplate("system").
 		UserTemplate("Hello, ${name}!").
 		ValuesFrom(value.RootValueFrom("name", "name")).
-		LLMFunction(func(nodeState *State, files *value.UrlsValue, systemPrompt, userPrompt string, format out.OutFormat, stream bool) (value.NodeValue, error) {
+		LLMFunction(func(nodeState *State, files *value.ResourcesValue, systemPrompt, userPrompt string, format out.OutFormat, stream bool) (value.NodeValue, error) {
 			return value.NullValue, nil
 		}).
 		// No FormatOut set
@@ -115,7 +115,7 @@ func TestLLMNodeBuilder(t *testing.T) {
 func TestLLMNodeGetNodeGraph(t *testing.T) {
 	llmNode := NewLLMNodeBuilder("llm").
 		ValuesFrom(value.RootValueFrom("input", "input")).
-		LLMFunction(func(nodeState *State, files *value.UrlsValue, systemPrompt, userPrompt string, format out.OutFormat, stream bool) (value.NodeValue, error) {
+		LLMFunction(func(nodeState *State, files *value.ResourcesValue, systemPrompt, userPrompt string, format out.OutFormat, stream bool) (value.NodeValue, error) {
 			return value.NullValue, nil
 		}).
 		FormatOut(out.NewTextOutFormat()).
@@ -306,7 +306,7 @@ func TestImageGenerationNodeBuilder(t *testing.T) {
 		ValuesFrom(value.RootValueFrom("name", "name")).
 		Scale("16:9").
 		MaxNumber(2).
-		ImageGenerationFunction(func(state *State, urls *value.UrlsValue, userPrompt string, maxNumber int, scale string) (value.NodeValue, error) {
+		ImageGenerationFunction(func(state *State, urls *value.ResourcesValue, userPrompt string, maxNumber int, scale string) (value.NodeValue, error) {
 			result := value.NewObjectValue()
 			result.PutString("prompt", userPrompt)
 			result.PutString("scale", scale)
@@ -323,7 +323,7 @@ func TestImageGenerationNodeExec(t *testing.T) {
 		ValuesFrom(value.RootValueFrom("name", "name")).
 		Scale("1:1").
 		MaxNumber(1).
-		ImageGenerationFunction(func(state *State, urls *value.UrlsValue, userPrompt string, maxNumber int, scale string) (value.NodeValue, error) {
+		ImageGenerationFunction(func(state *State, urls *value.ResourcesValue, userPrompt string, maxNumber int, scale string) (value.NodeValue, error) {
 			result := value.NewObjectValue()
 			result.PutString("prompt", userPrompt)
 			return result, nil
@@ -354,7 +354,7 @@ func TestImageGenerationNodeEmptyPrompt(t *testing.T) {
 		ValuesFrom().
 		Scale("1:1").
 		MaxNumber(1).
-		ImageGenerationFunction(func(state *State, urls *value.UrlsValue, userPrompt string, maxNumber int, scale string) (value.NodeValue, error) {
+		ImageGenerationFunction(func(state *State, urls *value.ResourcesValue, userPrompt string, maxNumber int, scale string) (value.NodeValue, error) {
 			return value.NewObjectValue(), nil
 		}).
 		Build()

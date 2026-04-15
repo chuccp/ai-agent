@@ -257,14 +257,14 @@ func (s *State) SaveCache(key string, nodeValue value.NodeValue) error {
 	return s.workflowContext.SaveCache(key, s.nodeID, nodeValue)
 }
 
-func (s *State) SaveCacheLLM(key string, nodeValue value.NodeValue, system string, user string, urlsValue *value.UrlsValue) error {
+func (s *State) SaveCacheLLM(key string, nodeValue value.NodeValue, system string, user string, resourcesValue *value.ResourcesValue) error {
 	if s.workflowContext == nil {
 		return nil
 	}
 	object := value.NewObjectValue()
 	object.Put("system", value.NewTextValue(system))
 	object.Put("user", value.NewTextValue(user))
-	object.Put("urls", urlsValue)
+	object.Put("resources", resourcesValue)
 	object.Put("result", nodeValue)
 	return s.workflowContext.SaveCache(key, s.nodeID, object)
 }

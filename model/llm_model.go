@@ -8,5 +8,5 @@ import (
 // LLMModel LLM模型接口
 type LLMModel interface {
 	// ChatCompletions 聊天完成
-	ChatCompletions(filesValue *value.FilesValue, prompt, text string, outFormat out.OutFormat, streamValue *value.StreamNodeValue) (value.NodeValue, error)
+	ChatCompletions(resourcesValue *value.ResourcesValue, prompt, text string, outFormat out.OutFormat, streamValue *value.StreamNodeValue) (value.NodeValue, error)
 }

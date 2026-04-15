@@ -94,6 +94,44 @@ func (o *ObjectValue) GetUrls(key string) *UrlsValue {
 	return v.AsUrls()
 }
 
+func (o *ObjectValue) GetResources(key string) *ResourcesValue {
+	v := o.Get(key)
+
+	if v != nil {
+		if v.IsResources() {
+			return v.AsResources()
+		}
+		if v.IsNumber() {
+			resources := NewResourcesValue()
+			resources.Add(v.AsNumber().String())
+			return resources
+		}
+		if v.IsText() {
+			resources := NewResourcesValue()
+			resources.Add(v.AsText().Text)
+			return resources
+		}
+		if v.IsArray() {
+			resources := NewResourcesValue()
+			v.AsArray().ForEach(func(index int, v NodeValue) bool {
+				if v.IsText() {
+					resources.Add(v.AsText().Text)
+				}
+				if v.IsNumber() {
+					resources.Add(v.AsNumber().String())
+				}
+				if v.IsResources() {
+					resources.AddAll(v.AsResources())
+				}
+				return true
+			})
+			return resources
+		}
+	}
+
+	return nil
+}
+
 // GetNumber 获取数值
 func (o *ObjectValue) GetNumber(key string) float64 {
 	v := o.Get(key)

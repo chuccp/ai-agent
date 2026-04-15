@@ -4,6 +4,9 @@ import (
 	"encoding/json"
 	"net/url"
 	"sync"
+
+	"github.com/chuccp/ai-agent/util"
+	"github.com/spf13/cast"
 )
 
 // ResourcesValue 通用资源值，可存放任意资源标识（URL、文件路径、数据库ID等）
@@ -31,22 +34,90 @@ func (r *ResourcesValue) IsResources() bool {
 	return true
 }
 
+func (r *ResourcesValue) IsFiles() bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	for _, s := range r.resources {
+		if util.IsFilePath(s) {
+			return true
+		}
+	}
+	return false
+}
+
+func (r *ResourcesValue) IsUrls() bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	for _, s := range r.resources {
+		if util.IsURL(s) || util.IsFilePath(s) {
+			return true
+		}
+	}
+	return false
+}
+
 func (r *ResourcesValue) AsResources() *ResourcesValue {
 	return r
 }
+func (r *ResourcesValue) AsInts() []int {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	result := make([]int, 0, len(r.resources))
+	for i, s := range r.resources {
+		result[i] = cast.ToInt(s)
+	}
+	return result
+}
+func (r *ResourcesValue) AsUints() []uint {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	result := make([]uint, len(r.resources))
+	for index, s := range r.resources {
+		result[index] = cast.ToUint(s)
+	}
+	return result
+}
+
+// AsUrls 将资源值转换为UrlsValue，只保留能解析为URL的字符串
+func (r *ResourcesValue) AsUrls() *UrlsValue {
+	uv := NewUrlsValue()
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	for _, s := range r.resources {
+		if util.IsURL(s) || util.IsFilePath(s) {
+			uv.ResourcesValue.resources = append(uv.ResourcesValue.resources, s)
+		}
+	}
+	return uv
+}
+
+// AsFiles 将资源值转换为FilesValue，只保留文件路径格式的字符串
+func (r *ResourcesValue) AsFiles() *FilesValue {
+	fv := NewFilesValue()
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	for _, s := range r.resources {
+		if util.IsFilePath(s) {
+			fv.ResourcesValue.resources = append(fv.ResourcesValue.resources, s)
+		}
+	}
+	return fv
+}
 
 // Add 添加资源
-func (r *ResourcesValue) Add(resource string) {
+func (r *ResourcesValue) Add(resource string) *ResourcesValue {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.resources = append(r.resources, resource)
+	return r
 }
 
 // Adds 添加多个资源
-func (r *ResourcesValue) Adds(resources []string) {
+func (r *ResourcesValue) Adds(resources []string) *ResourcesValue {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.resources = append(r.resources, resources...)
+	return r
 }
 
 // AddAll 添加所有资源
@@ -90,6 +161,29 @@ func (r *ResourcesValue) Resources() []string {
 	result := make([]string, len(r.resources))
 	copy(result, r.resources)
 	return result
+}
+
+// ForEach 遍历
+func (r *ResourcesValue) ForEach(fn func(index int, resource string) bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	for i, s := range r.resources {
+		if !fn(i, s) {
+			break
+		}
+	}
+}
+
+// Filter 过滤
+func (r *ResourcesValue) Filter(fn func(index int, resource string) bool) *ResourcesValue {
+	newRV := NewResourcesValue()
+	r.ForEach(func(index int, resource string) bool {
+		if fn(index, resource) {
+			newRV.Add(resource)
+		}
+		return true
+	})
+	return newRV
 }
 
 // String 返回字符串表示
@@ -278,6 +372,20 @@ type UrlsValueFrom struct {
 // NewUrlsValueFrom 创建URL值来源
 func NewUrlsValueFrom(nodeID, from string) *UrlsValueFrom {
 	return &UrlsValueFrom{
+		NodeID: nodeID,
+		From:   from,
+	}
+}
+
+// ResourcesValueFrom 资源值来源
+type ResourcesValueFrom struct {
+	NodeID string
+	From   string
+}
+
+// NewResourcesValueFrom 创建资源值来源
+func NewResourcesValueFrom(nodeID, from string) *ResourcesValueFrom {
+	return &ResourcesValueFrom{
 		NodeID: nodeID,
 		From:   from,
 	}

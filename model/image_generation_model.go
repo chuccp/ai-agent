@@ -7,5 +7,5 @@ import (
 // ImageGenerationModel 图片生成模型接口
 type ImageGenerationModel interface {
 	// Generate 生成图片
-	Generate(prompt string, maxNumber int, scale string) (*value.UrlsValue, error)
+	Generate(prompt string, maxNumber int, scale string) (*value.ResourcesValue, error)
 }
