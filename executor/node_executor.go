@@ -265,19 +265,119 @@ func (e *NodeExecutor) GetIndex() int {
 	return e.index
 }
 
+type executionLayers struct {
+	nodeMap    map[string]node.Node
+	endNode    node.Node
+	dependence map[string]*ExecNode
+}
+
+func createExecutionLayers(nodeMap map[string]node.Node, endNode node.Node) *executionLayers {
+	layers := &executionLayers{
+		nodeMap:    nodeMap,
+		endNode:    endNode,
+		dependence: make(map[string]*ExecNode),
+	}
+	layers.build()
+	return layers
+}
+func (receiver *executionLayers) build() {
+	for nid, n := range receiver.nodeMap {
+		execNode, ok := receiver.dependence[nid]
+		if !ok {
+			var set = false
+			execNode = NewExecNode(nid)
+			// 根据 valuesFrom 补充 前置节点
+			valuesFrom := n.GetValuesFrom()
+			if valuesFrom != nil && len(valuesFrom) > 0 {
+				set = true
+				for _, vf := range valuesFrom {
+					if util.IsNotBlank(vf.NodeID) {
+						execNode.AddPrevNodeID(vf.NodeID)
+					}
+				}
+			}
+			// 根据 IterationFrom 补充 前置节点
+			if iterNode, ok := n.(interface{ GetIterationFrom() []*value.ValueFrom }); ok {
+				iterationFrom := iterNode.GetIterationFrom()
+				if iterationFrom != nil && len(iterationFrom) > 0 {
+					set = true
+					for _, vf := range iterationFrom {
+						if util.IsNotBlank(vf.NodeID) {
+							execNode.AddPrevNodeID(vf.NodeID)
+						}
+					}
+				}
+			}
+			if !set {
+				id := n.GetPrevNodeID()
+				if util.IsNotBlank(id) {
+					execNode.AddPrevNodeID(id)
+				}
+			}
+			receiver.dependence[nid] = execNode
+		}
+	}
+}
+func (receiver *executionLayers) hasNext() bool {
+	return len(receiver.dependence) > 0
+}
+func (receiver *executionLayers) next() []node.Node {
+	runNodeIds := make(map[string]bool)
+	dependencies := make([]string, 0)
+	dependencies = append(dependencies, receiver.endNode.GetID())
+	for {
+		newDependencies := make([]string, 0)
+		allHas := false
+		for _, nid := range dependencies {
+			dnode, ok := receiver.dependence[nid]
+			if !ok {
+				continue
+			} else {
+				prevIds := dnode.GetPrevNodeIDs()
+				has := false
+				for _, prevId := range prevIds {
+					_, ok := receiver.dependence[prevId]
+					if ok {
+						has = true
+					}
+				}
+				if !has {
+					runNodeIds[nid] = true
+				} else {
+					allHas = true
+					newDependencies = append(newDependencies, prevIds...)
+				}
+			}
+		}
+		if allHas {
+			dependencies = newDependencies
+		} else {
+			break
+		}
+	}
+	nodes := make([]node.Node, len(runNodeIds))
+	index := 0
+	for k, _ := range runNodeIds {
+		nodes[index] = receiver.nodeMap[k]
+		delete(receiver.dependence, k)
+	}
+	return nodes
+
+}
+
 // Exec 执行
 func (e *NodeExecutor) Exec(pool *pool2.GOPool) (value.NodeValue, error) {
 	endNode, err := e.GetEndNode()
 	if err != nil {
 		return nil, err
 	}
-	layers, err := BuildExecutionLayers(e.nodeMap, endNode)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, layer := range layers {
-		fa, err := e.executeLayer(layer, pool)
+	layers := createExecutionLayers(e.nodeMap, endNode)
+	for layers.hasNext() {
+		nodes := layers.next()
+		if len(nodes) == 0 {
+			break
+		}
+		fa, err := e.executeLayer(nodes, pool)
 		if err != nil {
 			return nil, err
 		}
@@ -285,6 +385,21 @@ func (e *NodeExecutor) Exec(pool *pool2.GOPool) (value.NodeValue, error) {
 			return value.NullValue, nil
 		}
 	}
+
+	//layers, err := BuildExecutionLayers(e.nodeMap, endNode)
+	//if err != nil {
+	//	return nil, err
+	//}
+	//
+	//for _, layer := range layers {
+	//	fa, err := e.executeLayer(layer, pool)
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//	if !fa {
+	//		return value.NullValue, nil
+	//	}
+	//}
 
 	return e.ctx.GetNodeValue(endNode.GetID()), nil
 }
