@@ -213,6 +213,24 @@ func Join(sep string, parts ...string) string {
 func Split(s, sep string) []string {
 	return strings.Split(s, sep)
 }
+// SplitS 使用多个分隔符分割字符串，依次按每个分隔符进行分割
+func SplitS(s string, sep ...string) []string {
+	if s == "" || len(sep) == 0 {
+		return []string{s}
+	}
+	result := []string{s}
+	for _, se := range sep {
+		if se == "" {
+			continue
+		}
+		var next []string
+		for _, r := range result {
+			next = append(next, strings.Split(r, se)...)
+		}
+		result = next
+	}
+	return result
+}
 
 // SplitN 分割字符串，限制数量
 func SplitN(s, sep string, n int) []string {
