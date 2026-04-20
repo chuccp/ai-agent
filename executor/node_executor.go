@@ -360,6 +360,7 @@ func (receiver *executionLayers) next() []node.Node {
 	for k, _ := range runNodeIds {
 		nodes[index] = receiver.nodeMap[k]
 		delete(receiver.dependence, k)
+		index++
 	}
 	return nodes
 
