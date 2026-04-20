@@ -327,7 +327,11 @@ func (s *State) GetNodeValueFromNodeWithError(nodeID, from string) (value.NodeVa
 		return source, nil
 	}
 
-	return source.FindValue(from), nil
+	value := source.FindValue(from)
+	if value == nil {
+		return nil, errors.New("Node " + nodeID + " From  " + from + " not found")
+	}
+	return value, nil
 }
 func (s *State) GetNodeValueFromRootNode(from string) value.NodeValue {
 	var source value.NodeValue = s.GetRootValue()

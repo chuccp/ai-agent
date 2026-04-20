@@ -414,6 +414,12 @@ func NewResourcesValueFrom(nodeID, from string) *ResourcesValueFrom {
 		From:   from,
 	}
 }
+func NewRootResourcesValueFrom(from string) *ResourcesValueFrom {
+	return &ResourcesValueFrom{
+		NodeID: "",
+		From:   from,
+	}
+}
 
 // FilesValueFrom 文件值来源
 type FilesValueFrom struct {

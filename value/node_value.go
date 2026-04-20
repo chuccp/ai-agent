@@ -175,6 +175,12 @@ func fromInterface(v any) NodeValue {
 			arr.Add(fromInterface(item))
 		}
 		return arr
+	case []string:
+		arr := NewArrayValue()
+		for _, item := range val {
+			arr.Add(NewTextValue(item))
+		}
+		return arr
 	case map[string]any:
 		obj := NewObjectValue()
 		for k, item := range val {
