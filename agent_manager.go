@@ -87,6 +87,8 @@ func (m *AgentManager) ExecSync(agentExecutor *AgentExecutor, input *value.Objec
 	asyncResult := agentExecutor.ExecSync(input)
 	if asyncResult.Error == nil && asyncResult.Response.Success {
 		m.executorRegistry.Delete(agentExecutor.GetID())
+		m.mu.Lock()
+		defer m.mu.Unlock()
 		for m.tempRegistry.Len() >= 1000 {
 			m.tempRegistry.Delete(m.tempRegistry.Front().Key)
 		}
@@ -105,6 +107,8 @@ func (m *AgentManager) GetExecutor(id string) (*AgentExecutor, bool) {
 	if v, ok := m.executorRegistry.Load(id); ok {
 		return v.(*AgentExecutor), true
 	}
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	if v, ok := m.tempRegistry.Get(id); ok {
 		return v, true
 	}
