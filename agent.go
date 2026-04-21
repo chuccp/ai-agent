@@ -345,17 +345,8 @@ func (e *AgentExecutor) Exec(input *value.ObjectValue) (*Response, error) {
 	return NewResponse(nodeValue, true), nil
 }
 
-// ExecJSON 从JSON执行
-func (e *AgentExecutor) ExecJSON(inputJSON string) (*Response, error) {
-	input, err := value.ParseObjectValue([]byte(inputJSON))
-	if err != nil {
-		return nil, err
-	}
-	return e.Exec(input)
-}
-
 // ExecSync 同步执行
-func (e *AgentExecutor) ExecSync(input *value.ObjectValue) *AsyncResult {
+func (e *AgentExecutor) execSync(input *value.ObjectValue) *AsyncResult {
 	e.prepareInput(input)
 	var asyncResult = &AsyncResult{}
 	er := e.pool0.WaitGO(func() error {
@@ -427,7 +418,7 @@ func (e *AgentExecutor) prepareInput(input *value.ObjectValue) {
 	e.ctx.SetRootValue(e.inputValue)
 }
 
-func (e *AgentExecutor) ExecAsync(input *value.ObjectValue) *AsyncResult {
+func (e *AgentExecutor) execAsync(input *value.ObjectValue) *AsyncResult {
 	e.prepareInput(input)
 	var wg = pool.New()
 	errorPool := wg.WithMaxGoroutines(1).WithErrors().WithFirstError()
