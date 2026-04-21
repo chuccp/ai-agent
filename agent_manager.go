@@ -6,17 +6,24 @@ import (
 	"emperror.dev/errors"
 	"github.com/chuccp/ai-agent/executor"
 	"github.com/chuccp/ai-agent/value"
+	"github.com/elliotchance/orderedmap/v3"
 )
 
 // AgentManager Agent管理器
 type AgentManager struct {
-	agentRegistry    sync.Map // map[string]*Agent
-	mu               sync.RWMutex
-	executorRegistry sync.Map // map[string]*AgentExecutor
+	agentRegistry    *sync.Map // map[string]*Agent
+	mu               *sync.RWMutex
+	executorRegistry *sync.Map // map[string]*AgentExecutor
+	tempRegistry     *orderedmap.OrderedMap[string, *AgentExecutor]
 }
 
 func NewAgentManager() *AgentManager {
-	return &AgentManager{}
+	return &AgentManager{
+		agentRegistry:    new(sync.Map),
+		mu:               new(sync.RWMutex),
+		executorRegistry: new(sync.Map),
+		tempRegistry:     orderedmap.NewOrderedMap[string, *AgentExecutor](),
+	}
 }
 
 // RegisterAgent 注册Agent
@@ -52,6 +59,15 @@ func (m *AgentManager) GetAllAgents() []*Agent {
 	return agents
 }
 
+func (m *AgentManager) GetAllAgentExecutor() []*AgentExecutor {
+	var executors = make([]*AgentExecutor, 0)
+	m.executorRegistry.Range(func(key, value interface{}) bool {
+		executors = append(executors, value.(*AgentExecutor))
+		return true
+	})
+	return executors
+}
+
 // CreateExecutor 创建执行器
 func (m *AgentManager) CreateExecutor(agentID string, execConfig *executor.Config) (*AgentExecutor, error) {
 	agent, ok := m.GetAgent(agentID)
@@ -68,9 +84,17 @@ func (m *AgentManager) createExecutorForAgent(agent *Agent, execConfig *executor
 }
 func (m *AgentManager) ExecSync(agentExecutor *AgentExecutor, input *value.ObjectValue) *AsyncResult {
 	m.executorRegistry.Store(agentExecutor.GetID(), agentExecutor)
-	asyncResult := agentExecutor.execSync(input)
+	asyncResult := agentExecutor.ExecSync(input)
 	if asyncResult.Response.Success && asyncResult.Error == nil {
 		m.executorRegistry.Delete(agentExecutor.GetID())
+		for {
+			if m.tempRegistry.Len() >= 1000 {
+				m.tempRegistry.Delete(m.tempRegistry.Front().Key)
+			} else {
+				break
+			}
+		}
+		m.tempRegistry.Set(agentExecutor.GetID(), agentExecutor)
 	}
 	return asyncResult
 }
@@ -84,6 +108,9 @@ func (m *AgentManager) CreateExecutorWithID(executorID string, agent *Agent, exe
 func (m *AgentManager) GetExecutor(id string) (*AgentExecutor, bool) {
 	if v, ok := m.executorRegistry.Load(id); ok {
 		return v.(*AgentExecutor), true
+	}
+	if v, ok := m.tempRegistry.Get(id); ok {
+		return v, true
 	}
 	return nil, false
 }

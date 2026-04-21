@@ -345,8 +345,8 @@ func (e *AgentExecutor) Exec(input *value.ObjectValue) (*Response, error) {
 	return NewResponse(nodeValue, true), nil
 }
 
-// ExecSync 同步执行
-func (e *AgentExecutor) execSync(input *value.ObjectValue) *AsyncResult {
+// ExecSync 同步执行（返回AsyncResult）
+func (e *AgentExecutor) ExecSync(input *value.ObjectValue) *AsyncResult {
 	e.prepareInput(input)
 	var asyncResult = &AsyncResult{}
 	er := e.pool0.WaitGO(func() error {
@@ -418,7 +418,7 @@ func (e *AgentExecutor) prepareInput(input *value.ObjectValue) {
 	e.ctx.SetRootValue(e.inputValue)
 }
 
-func (e *AgentExecutor) execAsync(input *value.ObjectValue) *AsyncResult {
+func (e *AgentExecutor) ExecAsync(input *value.ObjectValue) *AsyncResult {
 	e.prepareInput(input)
 	var wg = pool.New()
 	errorPool := wg.WithMaxGoroutines(1).WithErrors().WithFirstError()
@@ -435,6 +435,15 @@ func (e *AgentExecutor) execAsync(input *value.ObjectValue) *AsyncResult {
 		return nil
 	}
 	return result
+}
+
+// ExecJSON 从JSON执行
+func (e *AgentExecutor) ExecJSON(inputJSON string) (*Response, error) {
+	input, err := value.ParseStrObjectValue(inputJSON)
+	if err != nil {
+		return nil, err
+	}
+	return e.Exec(input)
 }
 
 // AsyncResult 异步结果
