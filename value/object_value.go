@@ -3,6 +3,7 @@ package value
 import (
 	"bytes"
 	"encoding/json"
+	"log"
 	"regexp"
 	"strings"
 	"sync"
@@ -60,7 +61,10 @@ func (o *ObjectValue) Get(key string) NodeValue {
 // GetString 获取字符串值
 func (o *ObjectValue) GetString(key string) string {
 	v := o.Get(key)
-	if v == nil || v.IsNull() {
+	if v == nil {
+		log.Panic("GetString: "+key+" not found", errors.New(key+" not found"))
+	}
+	if v.IsNull() {
 		return ""
 	}
 	if v.IsText() {
@@ -69,8 +73,12 @@ func (o *ObjectValue) GetString(key string) string {
 	return v.String()
 }
 func (o *ObjectValue) GetOrString(keys ...string) string {
+	has := false
 	for _, key := range keys {
 		v := o.Get(key)
+		if v != nil {
+			has = true
+		}
 		if v != nil && !v.IsNull() {
 			if v.IsText() {
 				text := v.AsText().Text
@@ -82,13 +90,21 @@ func (o *ObjectValue) GetOrString(keys ...string) string {
 			return v.String()
 		}
 	}
+	if !has {
+		keyStr := strings.Join(keys, " or ")
+		log.Panic("GetOrString: "+keyStr+" not found", errors.New(keyStr+" not found"))
+
+	}
 	return ""
 }
 
 // GetUrlsValue 获取URL值
 func (o *ObjectValue) GetUrls(key string) *UrlsValue {
 	v := o.Get(key)
-	if v == nil || !v.IsUrls() {
+	if v == nil {
+		log.Panic("GetUrls: "+key+" not found", errors.New(key+" not found"))
+	}
+	if !v.IsUrls() {
 		return nil
 	}
 	return v.AsUrls()
@@ -97,36 +113,38 @@ func (o *ObjectValue) GetUrls(key string) *UrlsValue {
 func (o *ObjectValue) GetResources(key string) *ResourcesValue {
 	v := o.Get(key)
 
-	if v != nil {
-		if v.IsResources() {
-			return v.AsResources()
-		}
-		if v.IsNumber() {
-			resources := NewResourcesValue()
-			resources.Add(v.AsNumber().String())
-			return resources
-		}
-		if v.IsText() {
-			resources := NewResourcesValue()
-			resources.Add(v.AsText().Text)
-			return resources
-		}
-		if v.IsArray() {
-			resources := NewResourcesValue()
-			v.AsArray().ForEach(func(index int, v NodeValue) bool {
-				if v.IsText() {
-					resources.Add(v.AsText().Text)
-				}
-				if v.IsNumber() {
-					resources.Add(v.AsNumber().String())
-				}
-				if v.IsResources() {
-					resources.AddAll(v.AsResources())
-				}
-				return true
-			})
-			return resources
-		}
+	if v == nil {
+		log.Panic("GetResources: "+key+" not found", errors.New(key+" not found"))
+	}
+
+	if v.IsResources() {
+		return v.AsResources()
+	}
+	if v.IsNumber() {
+		resources := NewResourcesValue()
+		resources.Add(v.AsNumber().String())
+		return resources
+	}
+	if v.IsText() {
+		resources := NewResourcesValue()
+		resources.Add(v.AsText().Text)
+		return resources
+	}
+	if v.IsArray() {
+		resources := NewResourcesValue()
+		v.AsArray().ForEach(func(index int, v NodeValue) bool {
+			if v.IsText() {
+				resources.Add(v.AsText().Text)
+			}
+			if v.IsNumber() {
+				resources.Add(v.AsNumber().String())
+			}
+			if v.IsResources() {
+				resources.AddAll(v.AsResources())
+			}
+			return true
+		})
+		return resources
 	}
 
 	return nil
@@ -135,7 +153,12 @@ func (o *ObjectValue) GetResources(key string) *ResourcesValue {
 // GetNumber 获取数值
 func (o *ObjectValue) GetNumber(key string) float64 {
 	v := o.Get(key)
-	if v == nil || v.IsNull() {
+
+	if v == nil {
+		log.Panic("GetNumber: "+key+" not found", errors.New(key+" not found"))
+	}
+
+	if v.IsNull() {
 		return 0
 	}
 	if v.IsNumber() {
@@ -147,7 +170,10 @@ func (o *ObjectValue) GetNumber(key string) float64 {
 // GetInt 获取整数值
 func (o *ObjectValue) GetInt(key string) int {
 	v := o.Get(key)
-	if v == nil || v.IsNull() {
+	if v == nil {
+		log.Panic("GetInt: "+key+" not found", errors.New(key+" not found"))
+	}
+	if v.IsNull() {
 		return 0
 	}
 	if v.IsNumber() {
@@ -159,7 +185,10 @@ func (o *ObjectValue) GetInt(key string) int {
 // GetBool 获取布尔值
 func (o *ObjectValue) GetBool(key string) bool {
 	v := o.Get(key)
-	if v == nil || v.IsNull() {
+	if v == nil {
+		log.Panic("GetBool: "+key+" not found", errors.New(key+" not found"))
+	}
+	if v.IsNull() {
 		return false
 	}
 	if v.IsBool() {
@@ -171,7 +200,10 @@ func (o *ObjectValue) GetBool(key string) bool {
 // GetObject 获取对象值
 func (o *ObjectValue) GetObject(key string) *ObjectValue {
 	v := o.Get(key)
-	if v == nil || !v.IsObject() {
+	if v == nil {
+		log.Panic("GetObject: "+key+" not found", errors.New(key+" not found"))
+	}
+	if !v.IsObject() {
 		return nil
 	}
 	return v.AsObject()
@@ -180,7 +212,10 @@ func (o *ObjectValue) GetObject(key string) *ObjectValue {
 // GetArray 获取数组值
 func (o *ObjectValue) GetArray(key string) *ArrayValue {
 	v := o.Get(key)
-	if v == nil || !v.IsArray() {
+	if v == nil {
+		log.Panic("GetArray: "+key+" not found", errors.New(key+" not found"))
+	}
+	if !v.IsArray() {
 		return nil
 	}
 	return v.AsArray()
