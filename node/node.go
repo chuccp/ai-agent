@@ -354,7 +354,7 @@ func (s *State) GetParameterString(key string, defaultValue string) string {
 	if s.Parameter == nil {
 		return defaultValue
 	}
-	v := s.Parameter.GetString(key)
+	v := s.Parameter.GetStringOrDefault(key, defaultValue)
 	if v == "" {
 		return defaultValue
 	}

@@ -62,7 +62,7 @@ func (o *ObjectValue) Get(key string) NodeValue {
 func (o *ObjectValue) GetString(key string) string {
 	v := o.Get(key)
 	if v == nil {
-		log.Panic("GetString: "+key+" not found", errors.New(key+" not found"))
+		log.Panic("GetString: "+key+" not found ", errors.New(key+" not found"))
 	}
 	if v.IsNull() {
 		return ""
@@ -72,6 +72,21 @@ func (o *ObjectValue) GetString(key string) string {
 	}
 	return v.String()
 }
+
+func (o *ObjectValue) GetStringOrDefault(key string, defaultValue string) string {
+	v := o.Get(key)
+	if v == nil {
+		return defaultValue
+	}
+	if v.IsNull() {
+		return defaultValue
+	}
+	if v.IsText() {
+		return v.AsText().Text
+	}
+	return v.String()
+}
+
 func (o *ObjectValue) GetOrString(keys ...string) string {
 	has := false
 	for _, key := range keys {

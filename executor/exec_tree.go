@@ -8,6 +8,18 @@ import (
 	"github.com/chuccp/ai-agent/value"
 )
 
+type NodeTree struct {
+	NodeID    string
+	NodeTrees []*NodeTree
+}
+
+func (nt *NodeTree) create(nodeID string) *NodeTree {
+	return &NodeTree{
+		NodeID:    nodeID,
+		NodeTrees: make([]*NodeTree, 0),
+	}
+}
+
 // ExecNode 执行节点
 type ExecNode struct {
 	NodeID      string
