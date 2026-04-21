@@ -366,11 +366,7 @@ func (s *State) GetParameterInt(key string, defaultValue int) int {
 	if s.Parameter == nil {
 		return defaultValue
 	}
-	v := s.Parameter.GetNumber(key)
-	if v == 0 {
-		return defaultValue
-	}
-	return int(v)
+	return s.Parameter.GetIntOrDefault(key, defaultValue)
 }
 
 // GetParameterBool 获取布尔参数，如果不存在返回默认值
@@ -378,12 +374,5 @@ func (s *State) GetParameterBool(key string, defaultValue bool) bool {
 	if s.Parameter == nil {
 		return defaultValue
 	}
-	v := s.Parameter.Get(key)
-	if v == nil || v.IsNull() {
-		return defaultValue
-	}
-	if v.IsBool() {
-		return v.AsBool().Value
-	}
-	return defaultValue
+	return s.Parameter.GetBoolOrDefault(key, defaultValue)
 }

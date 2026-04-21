@@ -182,6 +182,21 @@ func (o *ObjectValue) GetNumber(key string) float64 {
 	return 0
 }
 
+// GetNumberOrDefault 获取数值，如果不存在返回默认值
+func (o *ObjectValue) GetNumberOrDefault(key string, defaultValue float64) float64 {
+	v := o.Get(key)
+	if v == nil {
+		return defaultValue
+	}
+	if v.IsNull() {
+		return defaultValue
+	}
+	if v.IsNumber() {
+		return v.AsNumber().Float64()
+	}
+	return defaultValue
+}
+
 // GetInt 获取整数值
 func (o *ObjectValue) GetInt(key string) int {
 	v := o.Get(key)
@@ -197,6 +212,21 @@ func (o *ObjectValue) GetInt(key string) int {
 	return 0
 }
 
+// GetIntOrDefault 获取整数值，如果不存在返回默认值
+func (o *ObjectValue) GetIntOrDefault(key string, defaultValue int) int {
+	v := o.Get(key)
+	if v == nil {
+		return defaultValue
+	}
+	if v.IsNull() {
+		return defaultValue
+	}
+	if v.IsNumber() {
+		return int(v.AsNumber().Int64())
+	}
+	return defaultValue
+}
+
 // GetBool 获取布尔值
 func (o *ObjectValue) GetBool(key string) bool {
 	v := o.Get(key)
@@ -210,6 +240,21 @@ func (o *ObjectValue) GetBool(key string) bool {
 		return v.AsBool().Value
 	}
 	return false
+}
+
+// GetBoolOrDefault 获取布尔值，如果不存在返回默认值
+func (o *ObjectValue) GetBoolOrDefault(key string, defaultValue bool) bool {
+	v := o.Get(key)
+	if v == nil {
+		return defaultValue
+	}
+	if v.IsNull() {
+		return defaultValue
+	}
+	if v.IsBool() {
+		return v.AsBool().Value
+	}
+	return defaultValue
 }
 
 // GetObject 获取对象值
