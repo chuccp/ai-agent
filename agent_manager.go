@@ -83,22 +83,16 @@ func (m *AgentManager) createExecutorForAgent(agent *Agent, execConfig *executor
 	return exec, nil
 }
 func (m *AgentManager) ExecSync(agentExecutor *AgentExecutor, input *value.ObjectValue) *AsyncResult {
-	_, OK := m.executorRegistry.Load(agentExecutor.GetID())
-	if !OK {
+	_, ok := m.executorRegistry.Load(agentExecutor.GetID())
+	if !ok {
 		m.executorRegistry.Store(agentExecutor.GetID(), agentExecutor)
 	}
 	asyncResult := agentExecutor.ExecSync(input)
-	if asyncResult.Response.Success && asyncResult.Error == nil {
-		m.executorRegistry.Delete(agentExecutor.GetID())
-		for {
-			if m.tempRegistry.Len() >= 1000 {
-				m.tempRegistry.Delete(m.tempRegistry.Front().Key)
-			} else {
-				break
-			}
-		}
-		m.tempRegistry.Set(agentExecutor.GetID(), agentExecutor)
+	m.executorRegistry.Delete(agentExecutor.GetID())
+	for m.tempRegistry.Len() >= 1000 {
+		m.tempRegistry.Delete(m.tempRegistry.Front().Key)
 	}
+	m.tempRegistry.Set(agentExecutor.GetID(), agentExecutor)
 	return asyncResult
 }
 
