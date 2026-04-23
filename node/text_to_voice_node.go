@@ -2,6 +2,7 @@ package node
 
 import (
 	"emperror.dev/errors"
+	"github.com/chuccp/ai-agent/util"
 
 	"github.com/chuccp/ai-agent/graph"
 	"github.com/chuccp/ai-agent/types"
@@ -9,97 +10,51 @@ import (
 )
 
 // TextToVoiceFunction 文字转语音函数
-type TextToVoiceFunction func(state *State, text string, voice string, speed float64) (value.NodeValue, error)
+type TextToVoiceFunction func(state *State, text string, parametersValue *value.ParametersValue) (value.NodeValue, error)
 
 // TextToVoiceNode 文字转语音节点
 type TextToVoiceNode struct {
 	*BaseNode
 	textToVoiceFunction TextToVoiceFunction
-	textTemplate        string
-	voice               string
-	speed               float64
-	cacheEnabled        bool
+	parametersValue     *value.ParametersValue
+	parametersFrom      []*value.ValueFrom
 }
 
 // NewTextToVoiceNode 创建文字转语音节点
 func NewTextToVoiceNode(id string) *TextToVoiceNode {
 	return &TextToVoiceNode{
-		BaseNode:     NewBaseNode(id, types.NodeTypeSingle),
-		voice:        "",
-		speed:        1.0,
-		cacheEnabled: true,
+		BaseNode:        NewBaseNode(id, types.NodeTypeSingle),
+		parametersValue: value.NewParametersValue(),
+		parametersFrom:  []*value.ValueFrom{},
 	}
-}
-
-// SetTextToVoiceFunction 设置文字转语音函数
-func (n *TextToVoiceNode) SetTextToVoiceFunction(fn TextToVoiceFunction) *TextToVoiceNode {
-	n.textToVoiceFunction = fn
-	return n
-}
-
-// SetTextTemplate 设置文本模板
-func (n *TextToVoiceNode) SetTextTemplate(template string) *TextToVoiceNode {
-	n.textTemplate = template
-	return n
-}
-
-// SetVoice 设置语音类型
-func (n *TextToVoiceNode) SetVoice(voice string) *TextToVoiceNode {
-	n.voice = voice
-	return n
-}
-
-// SetSpeed 设置语音速度
-func (n *TextToVoiceNode) SetSpeed(speed float64) *TextToVoiceNode {
-	n.speed = speed
-	return n
-}
-
-// SetCacheEnabled 设置是否启用缓存
-func (n *TextToVoiceNode) SetCacheEnabled(enabled bool) *TextToVoiceNode {
-	n.cacheEnabled = enabled
-	return n
 }
 
 // Exec 执行节点
 func (n *TextToVoiceNode) Exec(state *State) (value.NodeValue, error) {
-	// 解析输入
-	nodeValue, err := n.ParseValuesFromWithError(state, n.ValuesFrom)
-	if err != nil {
-		return nil, err
-	}
-
-	// 执行模板
-	text, err := nodeValue.ExecuteTemplateWithDollarFormat(n.textTemplate)
-	if err != nil {
-		return nil, err
-	}
-	if text == "" {
-		return nil, errors.New(n.ID + " text is empty")
-	}
-
-	// 解析参数
-	voice := n.resolveVoice(state)
-	speed := n.resolveSpeed(state)
-
-	// 构建缓存键
-	cacheKey := text + voice + string(rune(speed))
-
-	// 检查缓存
-	if n.cacheEnabled && state.IsCacheEnabled() {
-		cachedResult, err := state.GetCache(cacheKey)
-		if err == nil && cachedResult != nil && !cachedResult.IsNull() {
-			return cachedResult, nil
-		}
-	}
-
 	// 执行文字转语音函数
 	if n.textToVoiceFunction == nil {
 		return nil, errors.New(n.ID + " textToVoiceFunction is nil")
 	}
 
+	nodeValue, err := n.ParseValuesFromWithError(state, n.ValuesFrom)
+	if err != nil {
+		return nil, err
+	}
+	if !nodeValue.IsText() {
+		return nil, errors.New(n.ID + " nodeValue is not text")
+	}
+	text := nodeValue.AsText().Text
+	if util.IsBlank(text) {
+		return nil, errors.New(n.ID + " text is empty")
+	}
+
+	parametersValue0, err := n.ParseValuesFromWithError(state, n.parametersFrom)
+	if err != nil {
+		return nil, err
+	}
+	n.parametersValue.AddAllIFNULL(parametersValue0)
 	state.SetStatusType(types.NodeStatusRunning)
-	result, err := n.textToVoiceFunction(state, text, voice, speed)
+	result, err := n.textToVoiceFunction(state, text, n.parametersValue)
 	if err != nil {
 		state.SetStatusType(types.NodeStatusFailed)
 		return nil, err
@@ -111,29 +66,8 @@ func (n *TextToVoiceNode) Exec(state *State) (value.NodeValue, error) {
 		return nil, nil
 	}
 
-	// 保存到缓存
-	if n.cacheEnabled && state.IsCacheEnabled() {
-		_ = state.SaveCache(cacheKey, result)
-	}
-
 	state.SetStatusType(types.NodeStatusSucceeded)
 	return result, nil
-}
-
-// resolveVoice 解析voice参数
-func (n *TextToVoiceNode) resolveVoice(state *State) string {
-	if n.voice != "" {
-		return n.voice
-	}
-	return state.GetParameterString("voice", n.voice)
-}
-
-// resolveSpeed 解析speed参数
-func (n *TextToVoiceNode) resolveSpeed(state *State) float64 {
-	if n.speed != 0 {
-		return n.speed
-	}
-	return float64(state.GetParameterInt("speed", int(n.speed)))
 }
 
 // GetNodeGraph 获取节点图
@@ -153,39 +87,23 @@ func NewTextToVoiceNodeBuilder(id string) *TextToVoiceNodeBuilder {
 	}
 }
 
-// TextToVoiceFunction 设置文字转语音函数
-func (b *TextToVoiceNodeBuilder) TextToVoiceFunction(fn TextToVoiceFunction) *TextToVoiceNodeBuilder {
-	b.node.SetTextToVoiceFunction(fn)
+func (b *TextToVoiceNodeBuilder) TextFrom(valuesFrom *value.ValueFrom) *TextToVoiceNodeBuilder {
+	b.node.ValuesFrom = []*value.ValueFrom{valuesFrom}
 	return b
 }
 
-// TextTemplate 设置文本模板
-func (b *TextToVoiceNodeBuilder) TextTemplate(template string) *TextToVoiceNodeBuilder {
-	b.node.SetTextTemplate(template)
+func (b *TextToVoiceNodeBuilder) TextToVoiceFunction(textToVoiceFunction TextToVoiceFunction) *TextToVoiceNodeBuilder {
+	b.node.textToVoiceFunction = textToVoiceFunction
 	return b
 }
 
-// Voice 设置语音类型
-func (b *TextToVoiceNodeBuilder) Voice(voice string) *TextToVoiceNodeBuilder {
-	b.node.SetVoice(voice)
+func (b *TextToVoiceNodeBuilder) ParametersValue(key string, value any) *TextToVoiceNodeBuilder {
+	b.node.parametersValue.PutAny(key, value)
 	return b
 }
 
-// Speed 设置语音速度
-func (b *TextToVoiceNodeBuilder) Speed(speed float64) *TextToVoiceNodeBuilder {
-	b.node.SetSpeed(speed)
-	return b
-}
-
-// ValuesFrom 设置值来源
-func (b *TextToVoiceNodeBuilder) ValuesFrom(valuesFrom ...*value.ValueFrom) *TextToVoiceNodeBuilder {
-	b.node.ValuesFrom = append(b.node.ValuesFrom, valuesFrom...)
-	return b
-}
-
-// CacheEnabled 设置是否启用缓存
-func (b *TextToVoiceNodeBuilder) CacheEnabled(enabled bool) *TextToVoiceNodeBuilder {
-	b.node.SetCacheEnabled(enabled)
+func (b *TextToVoiceNodeBuilder) ParametersFrom(valuesFrom *value.ValueFrom) *TextToVoiceNodeBuilder {
+	b.node.parametersFrom = []*value.ValueFrom{valuesFrom}
 	return b
 }
 

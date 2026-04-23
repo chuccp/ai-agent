@@ -525,3 +525,13 @@ func findUnresolvedPlaceholders(text string) []string {
 
 	return unresolved
 }
+
+type ParametersValue struct {
+	*ObjectValue
+}
+
+func NewParametersValue() *ParametersValue {
+	return &ParametersValue{
+		ObjectValue: NewObjectValue(),
+	}
+}

@@ -14,6 +14,7 @@ type AgentManager struct {
 	agentRegistry    *sync.Map // map[string]*Agent
 	mu               *sync.RWMutex
 	executorRegistry *sync.Map // map[string]*AgentExecutor
+	liveRegistry     *sync.Map
 	tempRegistry     *orderedmap.OrderedMap[string, *AgentExecutor]
 }
 
@@ -22,6 +23,7 @@ func NewAgentManager() *AgentManager {
 		agentRegistry:    new(sync.Map),
 		mu:               new(sync.RWMutex),
 		executorRegistry: new(sync.Map),
+		liveRegistry:     new(sync.Map),
 		tempRegistry:     orderedmap.NewOrderedMap[string, *AgentExecutor](),
 	}
 }
@@ -67,6 +69,14 @@ func (m *AgentManager) GetAllAgentExecutor() []*AgentExecutor {
 	})
 	return executors
 }
+func (m *AgentManager) GetAllLiveAgentExecutor() []*AgentExecutor {
+	var executors = make([]*AgentExecutor, 0)
+	m.liveRegistry.Range(func(key, value interface{}) bool {
+		executors = append(executors, value.(*AgentExecutor))
+		return true
+	})
+	return executors
+}
 
 // CreateExecutor 创建执行器
 func (m *AgentManager) CreateExecutor(agentID string, execConfig *executor.Config) (*AgentExecutor, error) {
@@ -84,7 +94,9 @@ func (m *AgentManager) createExecutorForAgent(agent *Agent, execConfig *executor
 }
 func (m *AgentManager) ExecSync(agentExecutor *AgentExecutor, input *value.ObjectValue) *AsyncResult {
 	m.executorRegistry.Store(agentExecutor.GetID(), agentExecutor)
+	m.liveRegistry.Store(agentExecutor.GetID(), agentExecutor)
 	asyncResult := agentExecutor.ExecSync(input)
+	m.liveRegistry.Delete(agentExecutor.GetID())
 	if asyncResult.Error == nil && asyncResult.Response.Success {
 		m.executorRegistry.Delete(agentExecutor.GetID())
 		m.mu.Lock()
