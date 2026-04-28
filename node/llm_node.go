@@ -10,7 +10,7 @@ import (
 )
 
 // LLMFunction LLM函数
-type LLMFunction func(nodeState *State, resources *value.ResourcesValue, systemPrompt, userPrompt string, format out.OutFormat, stream bool) (value.NodeValue, error)
+type LLMFunction func(nodeState *State, resources *value.ResourcesValue, systemPrompt, userPrompt string, format out.OutFormat, stream bool, optionsValue *value.OptionsValue) (value.NodeValue, error)
 
 // LLMNode LLM节点
 type LLMNode struct {
@@ -22,13 +22,15 @@ type LLMNode struct {
 	llmFunction        LLMFunction
 	cacheEnabled       bool
 	resourcesValueFrom []*value.ResourcesValueFrom
+	optionsValue       *value.OptionsValue
 }
 
 // NewLLMNode 创建LLM节点
-func NewLLMNode(id string, resourcesValueFrom []*value.ResourcesValueFrom) *LLMNode {
+func NewLLMNode(id string) *LLMNode {
 	return &LLMNode{
 		BaseNode:           NewBaseNode(id, types.NodeTypeSingle),
-		resourcesValueFrom: resourcesValueFrom,
+		resourcesValueFrom: make([]*value.ResourcesValueFrom, 0),
+		optionsValue:       value.NewOptionsValue(),
 		cacheEnabled:       true,
 	}
 }
@@ -131,6 +133,9 @@ func (n *LLMNode) Exec(state *State) (value.NodeValue, error) {
 	if !resourcesValue.IsEmpty() {
 		cacheKey += resourcesValue.String()
 	}
+	if n.optionsValue != nil && !n.optionsValue.IsEmpty() {
+		cacheKey += n.optionsValue.String()
+	}
 
 	// 检查缓存
 	if cacheEnabled && state.IsCacheEnabled() {
@@ -147,7 +152,7 @@ func (n *LLMNode) Exec(state *State) (value.NodeValue, error) {
 	// 执行LLM函数
 	var result value.NodeValue
 	if n.llmFunction != nil {
-		result, err = n.llmFunction(state, resourcesValue, systemPrompt, userPrompt, n.formatOut, stream)
+		result, err = n.llmFunction(state, resourcesValue, systemPrompt, userPrompt, n.formatOut, stream, n.optionsValue)
 		if err != nil {
 			return nil, err
 		}
@@ -189,7 +194,7 @@ type LLMNodeBuilder struct {
 // NewLLMNodeBuilder 创建LLM节点构建器
 func NewLLMNodeBuilder(id string) *LLMNodeBuilder {
 	return &LLMNodeBuilder{
-		node: NewLLMNode(id, nil),
+		node: NewLLMNode(id),
 	}
 }
 
@@ -202,6 +207,11 @@ func (b *LLMNodeBuilder) FormatOut(format out.OutFormat) *LLMNodeBuilder {
 // Stream 设置是否流式
 func (b *LLMNodeBuilder) Stream(stream bool) *LLMNodeBuilder {
 	b.node.stream = stream
+	return b
+}
+
+func (b *LLMNodeBuilder) Options(key string, value any) *LLMNodeBuilder {
+	b.node.optionsValue.PutAny(key, value)
 	return b
 }
 
@@ -230,8 +240,8 @@ func (b *LLMNodeBuilder) ValuesFrom(valuesFrom ...*value.ValueFrom) *LLMNodeBuil
 }
 
 // ResourcesValueFrom 设置资源值来源
-func (b *LLMNodeBuilder) ResourcesValueFrom(froms ...*value.ResourcesValueFrom) *LLMNodeBuilder {
-	b.node.resourcesValueFrom = append(b.node.resourcesValueFrom, froms...)
+func (b *LLMNodeBuilder) ResourcesValueFrom(from ...*value.ResourcesValueFrom) *LLMNodeBuilder {
+	b.node.resourcesValueFrom = append(b.node.resourcesValueFrom, from...)
 	return b
 }
 

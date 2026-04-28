@@ -10,22 +10,22 @@ import (
 )
 
 // TextToVoiceFunction 文字转语音函数
-type TextToVoiceFunction func(state *State, text string, parametersValue *value.ParametersValue) (value.NodeValue, error)
+type TextToVoiceFunction func(state *State, text string, optionsValue *value.OptionsValue) (value.NodeValue, error)
 
 // TextToVoiceNode 文字转语音节点
 type TextToVoiceNode struct {
 	*BaseNode
 	textToVoiceFunction TextToVoiceFunction
-	parametersValue     *value.ParametersValue
-	parametersFrom      []*value.ValueFrom
+	optionsValue        *value.OptionsValue
+	optionsFrom         []*value.ValueFrom
 }
 
 // NewTextToVoiceNode 创建文字转语音节点
 func NewTextToVoiceNode(id string) *TextToVoiceNode {
 	return &TextToVoiceNode{
-		BaseNode:        NewBaseNode(id, types.NodeTypeSingle),
-		parametersValue: value.NewParametersValue(),
-		parametersFrom:  []*value.ValueFrom{},
+		BaseNode:     NewBaseNode(id, types.NodeTypeSingle),
+		optionsValue: value.NewOptionsValue(),
+		optionsFrom:  []*value.ValueFrom{},
 	}
 }
 
@@ -48,13 +48,13 @@ func (n *TextToVoiceNode) Exec(state *State) (value.NodeValue, error) {
 		return nil, errors.New(n.ID + " text is empty")
 	}
 
-	parametersValue0, err := n.ParseValuesFromWithError(state, n.parametersFrom)
+	parametersValue0, err := n.ParseValuesFromWithError(state, n.optionsFrom)
 	if err != nil {
 		return nil, err
 	}
-	n.parametersValue.AddAllIFNULL(parametersValue0)
+	n.optionsValue.AddAllIFNULL(parametersValue0)
 	state.SetStatusType(types.NodeStatusRunning)
-	result, err := n.textToVoiceFunction(state, text, n.parametersValue)
+	result, err := n.textToVoiceFunction(state, text, n.optionsValue)
 	if err != nil {
 		state.SetStatusType(types.NodeStatusFailed)
 		return nil, err
@@ -97,13 +97,13 @@ func (b *TextToVoiceNodeBuilder) TextToVoiceFunction(textToVoiceFunction TextToV
 	return b
 }
 
-func (b *TextToVoiceNodeBuilder) ParametersValue(key string, value any) *TextToVoiceNodeBuilder {
-	b.node.parametersValue.PutAny(key, value)
+func (b *TextToVoiceNodeBuilder) Options(key string, value any) *TextToVoiceNodeBuilder {
+	b.node.optionsValue.PutAny(key, value)
 	return b
 }
 
-func (b *TextToVoiceNodeBuilder) ParametersFrom(valuesFrom *value.ValueFrom) *TextToVoiceNodeBuilder {
-	b.node.parametersFrom = []*value.ValueFrom{valuesFrom}
+func (b *TextToVoiceNodeBuilder) OptionsFrom(valuesFrom *value.ValueFrom) *TextToVoiceNodeBuilder {
+	b.node.optionsFrom = []*value.ValueFrom{valuesFrom}
 	return b
 }
 

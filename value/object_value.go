@@ -46,6 +46,9 @@ func NewObjectValueFromMap(m map[string]interface{}) *ObjectValue {
 func (o *ObjectValue) IsObject() bool {
 	return true
 }
+func (o *ObjectValue) IsEmpty() bool {
+	return len(o.data) == 0
+}
 
 func (o *ObjectValue) AsObject() *ObjectValue {
 	return o
@@ -526,12 +529,12 @@ func findUnresolvedPlaceholders(text string) []string {
 	return unresolved
 }
 
-type ParametersValue struct {
+type OptionsValue struct {
 	*ObjectValue
 }
 
-func NewParametersValue() *ParametersValue {
-	return &ParametersValue{
+func NewOptionsValue() *OptionsValue {
+	return &OptionsValue{
 		ObjectValue: NewObjectValue(),
 	}
 }
