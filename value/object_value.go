@@ -10,6 +10,7 @@ import (
 	"text/template"
 
 	"emperror.dev/errors"
+	"github.com/chuccp/ai-agent/util"
 )
 
 // 匹配 ${variable_name} 格式的正则表达式
@@ -455,11 +456,9 @@ func ParseObjectValue(data []byte) (*ObjectValue, error) {
 	return obj, nil
 }
 func ParseStrObjectValue(data string) (*ObjectValue, error) {
-
-	if data == "" {
-		return NewObjectValue(), nil
+	if util.IsBlank(data) {
+		return nil, errors.New("data is empty")
 	}
-
 	return ParseObjectValue([]byte(data))
 }
 
