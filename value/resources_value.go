@@ -407,11 +407,28 @@ type ResourcesValueFrom struct {
 	From   string
 }
 
+type TextValueFrom struct {
+	NodeID string
+	From   string
+}
+
 // NewResourcesValueFrom 创建资源值来源
 func NewResourcesValueFrom(nodeID, from string) *ResourcesValueFrom {
 	return &ResourcesValueFrom{
 		NodeID: nodeID,
 		From:   from,
+	}
+}
+func NewTextValueFrom(nodeID, from string) *TextValueFrom {
+	return &TextValueFrom{
+		NodeID: nodeID,
+		From:   from,
+	}
+}
+func NewRootTextValueFrom(nodeID string) *TextValueFrom {
+	return &TextValueFrom{
+		NodeID: nodeID,
+		From:   "",
 	}
 }
 func NewRootResourcesValueFrom(from string) *ResourcesValueFrom {

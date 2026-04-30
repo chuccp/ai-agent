@@ -18,6 +18,8 @@ type TextToVoiceNode struct {
 	textToVoiceFunction TextToVoiceFunction
 	optionsValue        *value.OptionsValue
 	optionsFrom         []*value.ValueFrom
+
+	textValueFrom *value.TextValueFrom
 }
 
 // NewTextToVoiceNode 创建文字转语音节点
@@ -29,6 +31,25 @@ func NewTextToVoiceNode(id string) *TextToVoiceNode {
 	}
 }
 
+func (n *TextToVoiceNode) ParseTextValuesFromWithError(state *State) (*value.TextValue, error) {
+	if n.textValueFrom == nil {
+		return nil, errors.New(n.ID + " textValueFrom is nil")
+	}
+	vf := n.textValueFrom
+	nodeValue, err := state.GetNodeValueFromNodeWithError(vf.NodeID, vf.From)
+	if err != nil {
+		return nil, err
+	}
+	if nodeValue != nil {
+		if nodeValue.IsText() {
+			return nodeValue.AsText(), nil
+		} else {
+			return nil, errors.New(n.ID + " nodeValue is not text")
+		}
+	}
+	return nil, errors.New(n.ID + " textValueFrom is nil")
+}
+
 // Exec 执行节点
 func (n *TextToVoiceNode) Exec(state *State) (value.NodeValue, error) {
 	// 执行文字转语音函数
@@ -36,30 +57,27 @@ func (n *TextToVoiceNode) Exec(state *State) (value.NodeValue, error) {
 		return nil, errors.New(n.ID + " textToVoiceFunction is nil")
 	}
 
-	nodeValue, err := n.ParseValuesFromWithError(state, n.ValuesFrom)
+	nodeValue, err := n.ParseTextValuesFromWithError(state)
 	if err != nil {
 		return nil, err
 	}
-	if !nodeValue.IsText() {
-		return nil, errors.New(n.ID + " nodeValue is not text")
-	}
-	text := nodeValue.AsText().Text
+	text := nodeValue.Text
 	if util.IsBlank(text) {
 		return nil, errors.New(n.ID + " text is empty")
 	}
-
-	parametersValue0, err := n.ParseValuesFromWithError(state, n.optionsFrom)
+	optionsFrom0, err := n.ParseNoRootValuesFromWithError(state, n.optionsFrom)
 	if err != nil {
 		return nil, err
 	}
-	n.optionsValue.AddAllIFNULL(parametersValue0)
+	options := value.NewOptionsValue()
+	options.AddAllIFNULL(n.optionsValue.ObjectValue)
+	options.AddAllIFNULL(optionsFrom0)
 	state.SetStatusType(types.NodeStatusRunning)
-	result, err := n.textToVoiceFunction(state, text, n.optionsValue)
+	result, err := n.textToVoiceFunction(state, text, options)
 	if err != nil {
 		state.SetStatusType(types.NodeStatusFailed)
 		return nil, err
 	}
-
 	// 处理结果状态
 	if result == nil || result.IsNull() {
 		state.SetStatusType(types.NodeStatusRunning)
@@ -87,8 +105,13 @@ func NewTextToVoiceNodeBuilder(id string) *TextToVoiceNodeBuilder {
 	}
 }
 
-func (b *TextToVoiceNodeBuilder) TextFrom(valuesFrom *value.ValueFrom) *TextToVoiceNodeBuilder {
-	b.node.ValuesFrom = []*value.ValueFrom{valuesFrom}
+func (b *TextToVoiceNodeBuilder) TextFrom(textFrom *value.TextValueFrom) *TextToVoiceNodeBuilder {
+	b.node.textValueFrom = textFrom
+	b.node.ValuesFrom = append(b.node.ValuesFrom, &value.ValueFrom{
+		NodeID: textFrom.NodeID,
+		From:   textFrom.From,
+		Param:  textFrom.NodeID + "_" + textFrom.From,
+	})
 	return b
 }
 
@@ -104,6 +127,7 @@ func (b *TextToVoiceNodeBuilder) Options(key string, value any) *TextToVoiceNode
 
 func (b *TextToVoiceNodeBuilder) OptionsFrom(valuesFrom *value.ValueFrom) *TextToVoiceNodeBuilder {
 	b.node.optionsFrom = []*value.ValueFrom{valuesFrom}
+	b.node.ValuesFrom = append(b.node.ValuesFrom, valuesFrom)
 	return b
 }
 

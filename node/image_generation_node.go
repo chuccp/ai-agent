@@ -221,6 +221,13 @@ func (b *ImageGenerationNodeBuilder) ValuesFrom(valuesFrom ...*value.ValueFrom) 
 // ResourcesValueFrom 设置资源值来源
 func (b *ImageGenerationNodeBuilder) ResourcesValueFrom(froms ...*value.ResourcesValueFrom) *ImageGenerationNodeBuilder {
 	b.node.SetResourcesValueFrom(froms...)
+	for _, from := range froms {
+		b.node.ValuesFrom = append(b.node.ValuesFrom, &value.ValueFrom{
+			NodeID: from.NodeID,
+			From:   from.From,
+			Param:  from.NodeID + "_" + from.From,
+		})
+	}
 	return b
 }
 

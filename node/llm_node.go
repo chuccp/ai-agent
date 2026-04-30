@@ -133,10 +133,11 @@ func (n *LLMNode) Exec(state *State) (value.NodeValue, error) {
 	if !resourcesValue.IsEmpty() {
 		cacheKey += resourcesValue.String()
 	}
+	options := value.NewOptionsValue()
 	if n.optionsValue != nil && !n.optionsValue.IsEmpty() {
-		cacheKey += n.optionsValue.String()
+		options.AddAllIFNULL(n.optionsValue.ObjectValue)
+		cacheKey += options.String()
 	}
-
 	// 检查缓存
 	if cacheEnabled && state.IsCacheEnabled() {
 		cachedResult, err := state.GetCacheLLM(cacheKey)
@@ -152,7 +153,7 @@ func (n *LLMNode) Exec(state *State) (value.NodeValue, error) {
 	// 执行LLM函数
 	var result value.NodeValue
 	if n.llmFunction != nil {
-		result, err = n.llmFunction(state, resourcesValue, systemPrompt, userPrompt, n.formatOut, stream, n.optionsValue)
+		result, err = n.llmFunction(state, resourcesValue, systemPrompt, userPrompt, n.formatOut, stream, options)
 		if err != nil {
 			return nil, err
 		}
