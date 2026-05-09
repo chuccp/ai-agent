@@ -320,7 +320,7 @@ func (s *State) GetNodeValueFromNodeWithError(nodeID, from string) (value.NodeVa
 	}
 
 	if source == nil {
-		return nil, errors.New("Node " + s.nodeID + " not found")
+		return nil, errors.New("Node " + nodeID + " not found")
 	}
 
 	if util.IsBlank(from) || util.EqualsAny(from, ".", "*", "$", "$.") {

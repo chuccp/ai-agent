@@ -348,7 +348,9 @@ type TextValue struct {
 func NewTextValue(text string) *TextValue {
 	return &TextValue{Text: text}
 }
-
+func NewBlankTextValue() *TextValue {
+	return NewTextValue("")
+}
 func (t *TextValue) IsText() bool {
 	return true
 }
