@@ -243,6 +243,14 @@ func (b *LLMNodeBuilder) ValuesFrom(valuesFrom ...*value.ValueFrom) *LLMNodeBuil
 // ResourcesValueFrom 设置资源值来源
 func (b *LLMNodeBuilder) ResourcesValueFrom(from ...*value.ResourcesValueFrom) *LLMNodeBuilder {
 	b.node.resourcesValueFrom = append(b.node.resourcesValueFrom, from...)
+	for _,v:=range from{
+		b.node.ValuesFrom = append(b.node.ValuesFrom, &value.ValueFrom{
+						NodeID: v.NodeID,
+						From:   v.From,
+						Param: v.NodeID+ "_" +v.From,
+		})
+	}
+
 	return b
 }
 

@@ -9,7 +9,7 @@ import (
 )
 
 // ConditionFunc 条件函数
-type ConditionFunc func(ctx WorkflowContext) bool
+type ConditionFunc func(state *State) bool
 
 // IFNode 条件节点
 type IFNode struct {
@@ -68,7 +68,7 @@ func (n *IFNode) Exec(state *State) (value.NodeValue, error) {
 	}
 
 	// 评估条件
-	conditionResult := n.condition(state.GetWorkflowContext())
+	conditionResult := n.condition(state)
 
 	workflowParentID := state.GetWorkflowContext().GetParentID()
 
@@ -155,14 +155,8 @@ func (b *IFNodeBuilder) ValuesFrom(valuesFrom ...*value.ValueFrom) *IFNodeBuilde
 }
 
 // Build 构建
-func (b *IFNodeBuilder) Build() (*IFNode, error) {
-	if b.node.condition == nil {
-		return nil, ErrIFNodeConditionRequired
-	}
-	if b.node.thenWorkflow == nil && b.node.elseWorkflow == nil {
-		return nil, ErrIFNodeWorkflowRequired
-	}
-	return b.node, nil
+func (b *IFNodeBuilder) Build() *IFNode {
+	return b.node
 }
 
 // 错误定义

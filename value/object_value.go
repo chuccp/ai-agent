@@ -11,6 +11,7 @@ import (
 
 	"emperror.dev/errors"
 	"github.com/chuccp/ai-agent/util"
+	"github.com/spf13/cast"
 )
 
 // 匹配 ${variable_name} 格式的正则表达式
@@ -111,7 +112,7 @@ func (o *ObjectValue) GetOrString(keys ...string) string {
 	}
 	if !has {
 		keyStr := strings.Join(keys, " or ")
-		log.Panic("GetOrString: "+keyStr+" not found", errors.New(keyStr+" not found"))
+		log.Panic("GetOrString: "+keyStr+" not found  ", errors.New(keyStr+" not found"))
 
 	}
 	return ""
@@ -121,7 +122,7 @@ func (o *ObjectValue) GetOrString(keys ...string) string {
 func (o *ObjectValue) GetUrls(key string) *UrlsValue {
 	v := o.Get(key)
 	if v == nil {
-		log.Panic("GetUrls: "+key+" not found", errors.New(key+" not found"))
+		log.Panic("GetUrls: "+key+" not found ", errors.New(key+" not found"))
 	}
 	if !v.IsUrls() {
 		return nil
@@ -133,7 +134,7 @@ func (o *ObjectValue) GetResources(key string) *ResourcesValue {
 	v := o.Get(key)
 
 	if v == nil {
-		log.Panic("GetResources: "+key+" not found", errors.New(key+" not found"))
+		log.Panic("GetResources: "+key+" not found ", errors.New(key+" not found"))
 	}
 
 	if v.IsResources() {
@@ -174,7 +175,7 @@ func (o *ObjectValue) GetNumber(key string) float64 {
 	v := o.Get(key)
 
 	if v == nil {
-		log.Panic("GetNumber: "+key+" not found", errors.New(key+" not found"))
+		log.Panic("GetNumber: "+key+" not found ", errors.New(key+" not found"))
 	}
 
 	if v.IsNull() {
@@ -205,13 +206,35 @@ func (o *ObjectValue) GetNumberOrDefault(key string, defaultValue float64) float
 func (o *ObjectValue) GetInt(key string) int {
 	v := o.Get(key)
 	if v == nil {
-		log.Panic("GetInt: "+key+" not found", errors.New(key+" not found"))
+		log.Panic("GetInt: "+key+" not found ", errors.New(key+" not found"))
 	}
 	if v.IsNull() {
 		return 0
 	}
 	if v.IsNumber() {
 		return int(v.AsNumber().Int64())
+	}
+	return 0
+}
+func (o *ObjectValue) GetUInt(key string) uint {
+	v := o.Get(key)
+	if v == nil {
+		log.Panic("GetInt: "+key+" not found ", errors.New(key+" not found"))
+	}
+	if v.IsNull() {
+		return 0
+	}
+	if v.IsNumber() {
+		return uint(v.AsNumber().Uint64())
+	}
+	if v.IsResources() {
+		ids := v.AsResources().AsUints()
+		if len(ids) > 0 {
+			return ids[0]
+		}
+	}
+	if v.IsText() {
+		return cast.ToUint(v.AsText().Text)
 	}
 	return 0
 }
@@ -235,7 +258,7 @@ func (o *ObjectValue) GetIntOrDefault(key string, defaultValue int) int {
 func (o *ObjectValue) GetBool(key string) bool {
 	v := o.Get(key)
 	if v == nil {
-		log.Panic("GetBool: "+key+" not found", errors.New(key+" not found"))
+		log.Panic("GetBool: "+key+" not found ", errors.New(key+" not found"))
 	}
 	if v.IsNull() {
 		return false
@@ -265,7 +288,7 @@ func (o *ObjectValue) GetBoolOrDefault(key string, defaultValue bool) bool {
 func (o *ObjectValue) GetObject(key string) *ObjectValue {
 	v := o.Get(key)
 	if v == nil {
-		log.Panic("GetObject: "+key+" not found", errors.New(key+" not found"))
+		log.Panic("GetObject: "+key+" not found  ", errors.New(key+" not found"))
 	}
 	if !v.IsObject() {
 		return nil
@@ -277,7 +300,7 @@ func (o *ObjectValue) GetObject(key string) *ObjectValue {
 func (o *ObjectValue) GetArray(key string) *ArrayValue {
 	v := o.Get(key)
 	if v == nil {
-		log.Panic("GetArray: "+key+" not found", errors.New(key+" not found"))
+		log.Panic("GetArray: "+key+" not found  ", errors.New(key+" not found"))
 	}
 	if !v.IsArray() {
 		return nil

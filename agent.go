@@ -94,6 +94,15 @@ func (w *Workflow) Exec(ctx node.WorkflowContext) (value.NodeValue, error) {
 	if !ok {
 		return nil, errors.New("invalid context type for Workflow.Exec")
 	}
+	ids := make(map[string]bool)
+	for _, n := range w.nodes {
+		if _, ok := n.(*node.OutputNode); !ok {
+			ids[n.GetID()] = true
+		} else {
+			return nil, errors.New(" Node ID already exists id:" + n.GetID())
+		}
+	}
+
 	nodeExec := executor.NewNodeExecutor(0, w.nodes, execCtx)
 	return nodeExec.Exec(execCtx.GetPool())
 }
