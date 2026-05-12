@@ -96,7 +96,7 @@ func (w *Workflow) Exec(ctx node.WorkflowContext) (value.NodeValue, error) {
 	}
 	ids := make(map[string]bool)
 	for _, n := range w.nodes {
-		if _, ok := n.(*node.OutputNode); !ok {
+		if _, ok := ids[n.GetID()]; !ok {
 			ids[n.GetID()] = true
 		} else {
 			return nil, errors.New(" Node ID already exists id:" + n.GetID())

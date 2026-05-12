@@ -534,6 +534,13 @@ func (o *ObjectValue) ExecuteTemplateWithDollarFormat(templateStr string) (strin
 	return result, nil
 }
 
+func (o *ObjectValue) HasKey(s string) bool {
+	o.mu.RLock()
+	defer o.mu.RUnlock()
+	_, ok := o.data[s]
+	return ok
+}
+
 // findUnresolvedPlaceholders 查找未解析的占位符
 func findUnresolvedPlaceholders(text string) []string {
 	var unresolved []string
