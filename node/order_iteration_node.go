@@ -34,13 +34,14 @@ func (n *OrderIterationNode) Exec(state *State) (value.NodeValue, error) {
 	if err != nil {
 		return nil, err
 	}
-	result, _, err := n.workflow.ExecBatchOrder(state.GetWorkflowContext(), statusGroup, currentParentID, batchInputs)
+	result, fa, err := n.workflow.ExecBatchOrder(state.GetWorkflowContext(), statusGroup, currentParentID, batchInputs)
 	if err != nil {
 		state.SetStatusType(types.NodeStatusFailed)
-		return result, err
+		return nil, err
 	}
-	if result == nil || result.IsNull() {
+	if !fa || result == nil || result.IsNull() {
 		state.SetStatusType(types.NodeStatusRunning)
+		return nil, nil
 	}
 	return result, nil
 }
