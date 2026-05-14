@@ -9,7 +9,7 @@ import (
 )
 
 // ConditionFunc 条件函数
-type ConditionFunc func(state *State) bool
+type ConditionFunc func(state *State) (bool, error)
 
 // IFNode 条件节点
 type IFNode struct {
@@ -68,8 +68,10 @@ func (n *IFNode) Exec(state *State) (value.NodeValue, error) {
 	}
 
 	// 评估条件
-	conditionResult := n.condition(state)
-
+	conditionResult, err := n.condition(state)
+	if err != nil {
+		return nil, err
+	}
 	workflowParentID := state.GetWorkflowContext().GetParentID()
 
 	if conditionResult {
