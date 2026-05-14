@@ -58,11 +58,11 @@ type WorkflowInterface interface {
 	// Exec 执行工作流（使用现有的WorkflowContext）
 	Exec(ctx WorkflowContext) (value.NodeValue, error)
 	// ExecBatch 批量执行
-	ExecBatch(ctx WorkflowContext, statusGroup *graph.NodeStatusGroup, parentID string, inputs []*value.ObjectValue) (value.NodeValue, error)
+	ExecBatch(ctx WorkflowContext, statusGroup *graph.NodeStatusGroup, parentID string, inputs []*value.ObjectValue) (*value.ArrayValue, bool, error)
 	// Execute 执行子工作流（创建子上下文）
 	Execute(ctx WorkflowContext, input *value.ObjectValue, parentID string) (value.NodeValue, error)
 
-	ExecBatchOrder(ctx WorkflowContext, statusGroup *graph.NodeStatusGroup, parentID string, input []*value.ObjectValue) (value.NodeValue, error)
+	ExecBatchOrder(ctx WorkflowContext, statusGroup *graph.NodeStatusGroup, parentID string, input []*value.ObjectValue) (*value.ArrayValue, bool, error)
 
 	// GetGraphs 获取节点图列表
 	GetGraphs() []*graph.NodeGraph

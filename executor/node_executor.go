@@ -387,21 +387,6 @@ func (e *NodeExecutor) Exec(pool *pool2.GOPool) (value.NodeValue, error) {
 		}
 	}
 
-	//layers, err := BuildExecutionLayers(e.nodeMap, endNode)
-	//if err != nil {
-	//	return nil, err
-	//}
-	//
-	//for _, layer := range layers {
-	//	fa, err := e.executeLayer(layer, pool)
-	//	if err != nil {
-	//		return nil, err
-	//	}
-	//	if !fa {
-	//		return value.NullValue, nil
-	//	}
-	//}
-
 	return e.ctx.GetNodeValue(endNode.GetID()), nil
 }
 

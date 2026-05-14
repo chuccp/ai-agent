@@ -19,6 +19,11 @@ func NewArrayValue() *ArrayValue {
 		values: make([]NodeValue, 0),
 	}
 }
+func NewFixArrayValue(num int) *ArrayValue {
+	return &ArrayValue{
+		values: make([]NodeValue, num),
+	}
+}
 
 // NewArrayValueFromSlice 从切片创建数组值
 func NewArrayValueFromSlice(values []NodeValue) *ArrayValue {
@@ -41,6 +46,13 @@ func (a *ArrayValue) Add(value NodeValue) {
 	defer a.mu.Unlock()
 	if value != nil {
 		a.values = append(a.values, value)
+	}
+}
+func (a *ArrayValue) AddIndex(index int, value NodeValue) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if value != nil {
+		a.values[index] = value
 	}
 }
 

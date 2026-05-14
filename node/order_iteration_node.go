@@ -34,10 +34,10 @@ func (n *OrderIterationNode) Exec(state *State) (value.NodeValue, error) {
 	if err != nil {
 		return nil, err
 	}
-	result, err := n.workflow.ExecBatchOrder(state.GetWorkflowContext(), statusGroup, currentParentID, batchInputs)
+	result, _, err := n.workflow.ExecBatchOrder(state.GetWorkflowContext(), statusGroup, currentParentID, batchInputs)
 	if err != nil {
 		state.SetStatusType(types.NodeStatusFailed)
-		return nil, err
+		return result, err
 	}
 	if result == nil || result.IsNull() {
 		state.SetStatusType(types.NodeStatusRunning)

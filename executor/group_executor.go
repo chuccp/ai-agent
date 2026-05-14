@@ -32,21 +32,21 @@ func NewGroupExecutor(nodes []node.Node, parentID string, parentContext *Context
 }
 
 // ExecBatch 批量执行（使用goroutine并发，带panic恢复）
-func (e *GroupExecutor) ExecBatch(statusGroup *graph.NodeStatusGroup, inputs []*value.ObjectValue, isOrder bool) (value.NodeValue, bool, error) {
+func (e *GroupExecutor) ExecBatch(statusGroup *graph.NodeStatusGroup, inputs []*value.ObjectValue, isOrder bool) (*value.ArrayValue, bool, error) {
 
-	arr := value.NewArrayValue()
+	arr := value.NewFixArrayValue(len(inputs))
 	// 单输入直接执行
 	if len(inputs) == 1 {
 		nodeExecutor := e.executeSingle(0, inputs[0], arr)
 		statusGroup.AddChildren(nodeExecutor.GetNodeStatus())
 		result, err := nodeExecutor.Exec(e.pool2)
 		if err != nil {
-			return nil, false, err
+			return arr, false, err
 		}
 		if result == nil || result.IsNull() {
-			return value.NullValue, false, nil
+			return arr, false, nil
 		}
-		arr.Add(result)
+		arr.AddIndex(0, result)
 		return arr, true, nil
 	}
 	nodeExecutors := make([]*NodeExecutor, len(inputs))
@@ -59,35 +59,26 @@ func (e *GroupExecutor) ExecBatch(statusGroup *graph.NodeStatusGroup, inputs []*
 		for i := 0; i < len(nodeExecutors); i++ {
 			nodeValue, err := nodeExecutors[i].Exec(e.pool2)
 			if err != nil {
-				return nil, false, err
+				return arr, false, err
 			}
 			if nodeValue == nil || nodeValue.IsNull() {
-				return value.NullValue, false, nil
+				return arr, false, nil
 			}
-			arr.Add(nodeValue)
+			arr.AddIndex(i, nodeValue)
 		}
 		return arr, true, nil
 	}
-	results := make([]value.NodeValue, len(inputs))
-	for i := range results {
-		results[i] = value.NullValue
-	}
+
 	err := e.pool2.WaitGOIndex(len(inputs), func(index int) error {
 		nodeValue, err := nodeExecutors[index].Exec(e.pool2)
 		if err != nil {
 			return errors.Append(err, errors.New("执行失败:"+strconv.Itoa(index)))
 		}
-		results[index] = nodeValue
+		arr.AddIndex(index, nodeValue)
 		return nil
 	})
 	if err != nil {
-		return nil, false, err
-	}
-	for _, result := range results {
-		if result == nil || result.IsNull() {
-			return value.NullValue, false, nil
-		}
-		arr.Add(result)
+		return arr, false, err
 	}
 	return arr, true, nil
 }

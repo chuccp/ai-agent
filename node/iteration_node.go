@@ -83,7 +83,7 @@ func (n *IterationNode) Exec(state *State) (value.NodeValue, error) {
 		return nil, err
 	}
 
-	result, err := n.workflow.ExecBatch(state.GetWorkflowContext(), statusGroup, currentParentID, batchInputs)
+	result, _, err := n.workflow.ExecBatch(state.GetWorkflowContext(), statusGroup, currentParentID, batchInputs)
 	if err != nil {
 		state.SetStatusType(types.NodeStatusFailed)
 		return nil, err

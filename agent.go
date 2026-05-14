@@ -112,25 +112,25 @@ func (w *Workflow) Execute(ctx node.WorkflowContext, input *value.ObjectValue, p
 	childCtx := ctx.CreateChildContext(w.nodes, input, value.NewArrayValue(), parentID)
 	return w.Exec(childCtx)
 }
-func (w *Workflow) ExecBatchOrder(ctx node.WorkflowContext, statusGroup *graph.NodeStatusGroup, parentID string, inputs []*value.ObjectValue) (value.NodeValue, error) {
+func (w *Workflow) ExecBatchOrder(ctx node.WorkflowContext, statusGroup *graph.NodeStatusGroup, parentID string, inputs []*value.ObjectValue) (*value.ArrayValue, bool, error) {
 	execCtx, ok := ctx.(*executor.Context)
 	if !ok {
-		return nil, errors.New("invalid context type for Workflow.ExecBatch")
+		return nil, false, errors.New("invalid context type for Workflow.ExecBatch")
 	}
 	groupExec := executor.NewGroupExecutor(w.nodes, parentID, execCtx, context.Background())
-	nodeValue, _, err := groupExec.ExecBatch(statusGroup, inputs, true)
-	return nodeValue, err
+	nodeValue, fa, err := groupExec.ExecBatch(statusGroup, inputs, true)
+	return nodeValue, fa, err
 }
 
 // ExecBatch 批量执行
-func (w *Workflow) ExecBatch(ctx node.WorkflowContext, statusGroup *graph.NodeStatusGroup, parentID string, inputs []*value.ObjectValue) (value.NodeValue, error) {
+func (w *Workflow) ExecBatch(ctx node.WorkflowContext, statusGroup *graph.NodeStatusGroup, parentID string, inputs []*value.ObjectValue) (*value.ArrayValue, bool, error) {
 	execCtx, ok := ctx.(*executor.Context)
 	if !ok {
-		return nil, errors.New("invalid context type for Workflow.ExecBatch")
+		return nil, false, errors.New("invalid context type for Workflow.ExecBatch")
 	}
 	groupExec := executor.NewGroupExecutor(w.nodes, parentID, execCtx, context.Background())
-	nodeValue, _, err := groupExec.ExecBatch(statusGroup, inputs, false)
-	return nodeValue, err
+	nodeValue, fa, err := groupExec.ExecBatch(statusGroup, inputs, false)
+	return nodeValue, fa, err
 }
 
 // GetGraph 获取图
