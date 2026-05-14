@@ -34,24 +34,26 @@ func NewGroupExecutor(nodes []node.Node, parentID string, parentContext *Context
 // ExecBatch 批量执行（使用goroutine并发，带panic恢复）
 func (e *GroupExecutor) ExecBatch(statusGroup *graph.NodeStatusGroup, inputs []*value.ObjectValue, isOrder bool) (*value.ArrayValue, bool, error) {
 
-	arr := value.NewFixArrayValue(len(inputs))
+	allArr := value.NewFixArrayValue(len(inputs))
+	share := value.NewArrayValue()
 	// 单输入直接执行
 	if len(inputs) == 1 {
-		nodeExecutor := e.executeSingle(0, inputs[0], arr)
+		nodeExecutor := e.executeSingle(0, inputs[0], share)
 		statusGroup.AddChildren(nodeExecutor.GetNodeStatus())
 		result, err := nodeExecutor.Exec(e.pool2)
 		if err != nil {
-			return arr, false, err
+			return allArr, false, err
 		}
 		if result == nil || result.IsNull() {
-			return arr, false, nil
+			return allArr, false, nil
 		}
-		arr.AddIndex(0, result)
-		return arr, true, nil
+		share.Add(result)
+		allArr.AddIndex(0, result)
+		return allArr, true, nil
 	}
 	nodeExecutors := make([]*NodeExecutor, len(inputs))
 	for i, input := range inputs {
-		nodeExecutor := e.executeSingle(i, input, arr)
+		nodeExecutor := e.executeSingle(i, input, share)
 		statusGroup.AddChildren(nodeExecutor.GetNodeStatus())
 		nodeExecutors[i] = nodeExecutor
 	}
@@ -59,14 +61,15 @@ func (e *GroupExecutor) ExecBatch(statusGroup *graph.NodeStatusGroup, inputs []*
 		for i := 0; i < len(nodeExecutors); i++ {
 			nodeValue, err := nodeExecutors[i].Exec(e.pool2)
 			if err != nil {
-				return arr, false, err
+				return allArr, false, err
 			}
 			if nodeValue == nil || nodeValue.IsNull() {
-				return arr, false, nil
+				return allArr, false, nil
 			}
-			arr.AddIndex(i, nodeValue)
+			share.Add(nodeValue)
+			allArr.AddIndex(i, nodeValue)
 		}
-		return arr, true, nil
+		return allArr, true, nil
 	}
 
 	err := e.pool2.WaitGOIndex(len(inputs), func(index int) error {
@@ -74,13 +77,17 @@ func (e *GroupExecutor) ExecBatch(statusGroup *graph.NodeStatusGroup, inputs []*
 		if err != nil {
 			return errors.Append(err, errors.New("执行失败:"+strconv.Itoa(index)))
 		}
-		arr.AddIndex(index, nodeValue)
+		allArr.AddIndex(index, nodeValue)
 		return nil
 	})
+	allArr.ForEach(func(index int, value value.NodeValue) bool {
+		share.Add(value)
+		return true
+	})
 	if err != nil {
-		return arr, false, err
+		return allArr, false, err
 	}
-	return arr, true, nil
+	return allArr, true, nil
 }
 
 func (e *GroupExecutor) executeSingle(index int, input *value.ObjectValue, shareValue *value.ArrayValue) *NodeExecutor {
