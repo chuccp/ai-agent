@@ -82,7 +82,7 @@ func (e *GroupExecutor) ExecBatch(statusGroup *graph.NodeStatusGroup, inputs []*
 	})
 	hasNil := false
 	allArr.ForEach(func(index int, value value.NodeValue) bool {
-		if value == nil || value.IsNull() {
+		if !hasNil || value == nil || value.IsNull() {
 			hasNil = true
 		}
 		share.Add(value)
