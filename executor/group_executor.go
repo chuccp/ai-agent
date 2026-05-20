@@ -80,14 +80,18 @@ func (e *GroupExecutor) ExecBatch(statusGroup *graph.NodeStatusGroup, inputs []*
 		allArr.AddIndex(index, nodeValue)
 		return nil
 	})
+	hasNil := false
 	allArr.ForEach(func(index int, value value.NodeValue) bool {
+		if value == nil || value.IsNull() {
+			hasNil = true
+		}
 		share.Add(value)
 		return true
 	})
 	if err != nil {
 		return allArr, false, err
 	}
-	return allArr, true, nil
+	return allArr, !hasNil, nil
 }
 
 func (e *GroupExecutor) executeSingle(index int, input *value.ObjectValue, shareValue *value.ArrayValue) *NodeExecutor {
