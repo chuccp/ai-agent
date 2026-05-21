@@ -1,6 +1,7 @@
 package executor
 
 import (
+	"log"
 	"sync"
 	"time"
 
@@ -493,6 +494,19 @@ func (e *NodeExecutor) createAndRunNodeState(n node.Node) (*node.State, error) {
 
 	// 执行节点
 	output, err := n.Exec(state)
+
+	log.Printf("node %s exec output: %s\n", n.GetID(), output)
+
+	if n.GetOutWatchFunc() != nil {
+		if err := n.GetOutWatchFunc()(state, output); err != nil {
+			return state, err
+		}
+	}
+
+	if output == nil || output.IsNull() {
+		log.Printf("node %s exec output is null\n", n.GetID())
+	}
+
 	if err != nil {
 		err = errors.Append(errors.Errorf("node %s exec failed", n.GetID()), err)
 		state.SetStatusType(types.NodeStatusFailed)

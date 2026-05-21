@@ -1,6 +1,8 @@
 package node
 
 import (
+	"log"
+
 	"emperror.dev/errors"
 	"github.com/chuccp/ai-agent/util"
 
@@ -74,6 +76,9 @@ func (n *TextToVoiceNode) Exec(state *State) (value.NodeValue, error) {
 	options.AddAllIFNULL(optionsFrom0)
 	state.SetStatusType(types.NodeStatusRunning)
 	result, err := n.textToVoiceFunction(state, text, options)
+
+	log.Println("TextToVoiceNode", "Exec", "result", result, "err", err)
+
 	if err != nil {
 		state.SetStatusType(types.NodeStatusFailed)
 		return nil, err

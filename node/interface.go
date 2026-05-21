@@ -22,6 +22,11 @@ type Node interface {
 	GetWatch() WatchFunc
 	// SetWatch 设置监听函数
 	SetWatch(watch WatchFunc)
+
+	GetOutWatchFunc() OutWatchFunc
+
+	SetOutWatchFunc(watch OutWatchFunc)
+
 	// Exec 执行节点
 	Exec(state *State) (value.NodeValue, error)
 	// GetNodeGraph 获取节点图

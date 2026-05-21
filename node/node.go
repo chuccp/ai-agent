@@ -12,12 +12,15 @@ import (
 // WatchFunc 监听函数
 type WatchFunc func(state *State) error
 
+type OutWatchFunc func(state *State, outValue value.NodeValue) error
+
 // BaseNode 基础节点
 type BaseNode struct {
 	ID         string
 	PrevNodeID string
 	ValuesFrom []*value.ValueFrom
 	Watch      WatchFunc
+	OutWatch   OutWatchFunc
 	nodeType   types.NodeType
 }
 
@@ -69,6 +72,16 @@ func (n *BaseNode) GetWatch() WatchFunc {
 // SetWatch 设置监听函数
 func (n *BaseNode) SetWatch(watch WatchFunc) {
 	n.Watch = watch
+}
+
+// GetOutWatchFunc 获取监听函数
+func (n *BaseNode) GetOutWatchFunc() OutWatchFunc {
+	return n.OutWatch
+}
+
+// SetOutWatchFunc 设置监听函数
+func (n *BaseNode) SetOutWatchFunc(outWatch OutWatchFunc) {
+	n.OutWatch = outWatch
 }
 
 // ParseValuesFrom 解析值来源

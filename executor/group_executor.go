@@ -59,11 +59,13 @@ func (e *GroupExecutor) ExecBatch(statusGroup *graph.NodeStatusGroup, inputs []*
 	}
 	if isOrder {
 		for i := 0; i < len(nodeExecutors); i++ {
-			nodeValue, err := nodeExecutors[i].Exec(e.pool2)
+			ne := nodeExecutors[i]
+			nodeValue, err := ne.Exec(e.pool2)
 			if err != nil {
 				return allArr, false, err
 			}
 			if nodeValue == nil || nodeValue.IsNull() {
+
 				return allArr, false, nil
 			}
 			share.Add(nodeValue)
@@ -82,8 +84,10 @@ func (e *GroupExecutor) ExecBatch(statusGroup *graph.NodeStatusGroup, inputs []*
 	})
 	hasNil := false
 	allArr.ForEach(func(index int, value value.NodeValue) bool {
-		if !hasNil || value == nil || value.IsNull() {
-			hasNil = true
+		if !hasNil {
+			if value == nil || value.IsNull() {
+				hasNil = true
+			}
 		}
 		share.Add(value)
 		return true

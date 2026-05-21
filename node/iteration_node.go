@@ -1,6 +1,7 @@
 package node
 
 import (
+	"log"
 	"strconv"
 
 	"emperror.dev/errors"
@@ -84,6 +85,7 @@ func (n *IterationNode) Exec(state *State) (value.NodeValue, error) {
 	}
 
 	result, fa, err := n.workflow.ExecBatch(state.GetWorkflowContext(), statusGroup, currentParentID, batchInputs)
+	log.Println("执行结果", result, fa, err)
 	if err != nil {
 		state.SetStatusType(types.NodeStatusFailed)
 		return nil, err
