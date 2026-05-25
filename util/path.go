@@ -20,7 +20,7 @@ func IsFilePath(s string) bool {
 	if len(s) > 1 && (s[0] == '/' || s[1] == ':') {
 		return true
 	}
-	if len(s) > 2 && s[0:2] == "./" || s[0:2] == ".." {
+	if len(s) >= 2 && (s[0:2] == "./" || s[0:2] == "..") {
 		return true
 	}
 	u, err := url.Parse(s)
