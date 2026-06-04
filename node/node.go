@@ -161,6 +161,11 @@ func NewNodeState(workflowContext WorkflowContext, nodeID string, input *value.O
 		Parameter:       parameter,
 	}
 }
+
+func (s *State) GetExecutorId() string {
+	return s.workflowContext.GetExecutorId()
+}
+
 func (s *State) GetShareValue() *value.ArrayValue {
 	return s.workflowContext.GetShareValue()
 }

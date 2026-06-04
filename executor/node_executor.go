@@ -65,9 +65,11 @@ type Context struct {
 	mu           sync.Mutex
 	nodeStates   map[string]graph.NodeStatusInterface
 	pool2        *pool2.GOPool
+	executorId   string
+	indexes      []int
 }
 
-func NewContext(nodes []node.Node, rootValue *value.ObjectValue, config *Config, pool2 *pool2.GOPool) *Context {
+func NewContext(executorId string, nodes []node.Node, rootValue *value.ObjectValue, config *Config, pool2 *pool2.GOPool) *Context {
 	if rootValue == nil {
 		rootValue = value.NewObjectValue()
 	}
@@ -82,9 +84,16 @@ func NewContext(nodes []node.Node, rootValue *value.ObjectValue, config *Config,
 	}
 	ctx.shareValue = value.NewArrayValue()
 	ctx.pool2 = pool2
+	ctx.executorId = executorId
+	ctx.indexes = []int{0}
 	ctx.init(nodes)
 	return ctx
 }
+
+func (c *Context) GetExecutorId() string {
+	return c.executorId
+}
+
 func (c *Context) GetPool() *pool2.GOPool {
 	return c.pool2
 }
@@ -109,6 +118,8 @@ func (c *Context) CreateChildContext(nodes []node.Node, childRootValue *value.Ob
 		parentID:     childParentID,
 		config:       c.config,
 		pool2:        c.pool2,
+		executorId:   c.executorId,
+		indexes:      c.indexes,
 	}
 	ctx.shareValue = shareValue
 	ctx.init(nodes)

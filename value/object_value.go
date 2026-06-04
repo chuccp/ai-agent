@@ -478,6 +478,9 @@ func ParseObjectValue(data []byte) (*ObjectValue, error) {
 	}
 	return obj, nil
 }
+func ParseObjectString(data string) (*ObjectValue, error) {
+	return ParseObjectValue([]byte(data))
+}
 func ParseStrObjectValue(data string) (*ObjectValue, error) {
 	if util.IsBlank(data) {
 		return nil, errors.New("data is empty")

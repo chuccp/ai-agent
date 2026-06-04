@@ -419,6 +419,12 @@ func NewResourcesValueFrom(nodeID, from string) *ResourcesValueFrom {
 		From:   from,
 	}
 }
+func NewResourcesRootValueFrom(from string) *ResourcesValueFrom {
+	return &ResourcesValueFrom{
+		NodeID: "",
+		From:   from,
+	}
+}
 func NewTextValueFrom(nodeID, from string) *TextValueFrom {
 	return &TextValueFrom{
 		NodeID: nodeID,

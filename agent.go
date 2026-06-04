@@ -294,7 +294,7 @@ func NewAgentExecutorWithExecutorId(executorId string, agent *Agent, execConfig 
 	}
 	nodes := agent.workflow.GetNodes()
 	pool0 := pool2.NewGOPool(execConfig.MaxConcurrency)
-	ctx := executor.NewContext(nodes, value.NewObjectValue(), execConfig, pool0)
+	ctx := executor.NewContext(executorId, nodes, value.NewObjectValue(), execConfig, pool0)
 	return &AgentExecutor{
 		agent:      agent,
 		id:         executorId,
