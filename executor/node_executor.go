@@ -29,6 +29,10 @@ type OnAfterNodeRun func(state *node.State) error
 // OnFailedNodeRun 节点运行失败回调
 type OnFailedNodeRun func(state *node.State, err error)
 
+// StreamCallback 流式回调，当节点输出为 StreamNodeValue 时调用
+// chunk 是增量文本，done 表示该节点流结束，errMsg 非空表示出错
+type StreamCallback func(nodeId string, chunk string, done bool, errMsg string)
+
 // Config 执行器配置
 type Config struct {
 	RootCachePath        string
@@ -39,6 +43,7 @@ type Config struct {
 	OnBeforeNodeRun      OnBeforeNodeRun
 	OnAfterNodeRun       OnAfterNodeRun
 	OnFailedNodeRun      OnFailedNodeRun
+	StreamCallback       StreamCallback
 	Parameter            *value.ObjectValue
 }
 
@@ -234,7 +239,7 @@ func (c *Context) GetOrComputeCache(key, nodeID string, fn cache.CacheFunction) 
 	return c.cacheManager.GetOrCompute(c.GetCacheKey(key, nodeID), nodeID, fn)
 }
 
-// NodeExecutor 节点执行器
+// NodeExecutor 节点执行器自己
 type NodeExecutor struct {
 	nodes    []node.Node
 	nodeMap  map[string]node.Node
@@ -243,6 +248,7 @@ type NodeExecutor struct {
 	config   *Config
 	mu       sync.Mutex
 	index    int
+	wg       sync.WaitGroup
 }
 
 // NewNodeExecutor 创建节点执行器
@@ -395,10 +401,12 @@ func (e *NodeExecutor) Exec(pool *pool2.GOPool) (value.NodeValue, error) {
 			return nil, err
 		}
 		if !fa {
+			e.wg.Wait()
 			return value.NullValue, nil
 		}
 	}
 
+	e.wg.Wait()
 	return e.ctx.GetNodeValue(endNode.GetID()), nil
 }
 
@@ -542,7 +550,28 @@ func (e *NodeExecutor) createAndRunNodeState(n node.Node) (*node.State, error) {
 // finalizeNodeState 完成节点状态
 func (e *NodeExecutor) finalizeNodeState(nodeID string, state *node.State) {
 	if state.IsSucceeded() {
-		e.ctx.AddNodeValue(nodeID, state.GetNodeValue())
+		nodeValue := state.GetNodeValue()
+		e.ctx.AddNodeValue(nodeID, nodeValue)
+		// 桥接 StreamNodeValue 到 StreamCallback
+		if nodeValue != nil && nodeValue.IsStream() && e.config.StreamCallback != nil {
+			streamValue := nodeValue.AsStream()
+			e.wg.Add(1)
+			go func() {
+				defer e.wg.Done()
+				for v := range streamValue.Channel() {
+					chunk := ""
+					if v.IsText() {
+						chunk = v.AsText().Text
+					} else if v.IsObject() {
+						chunk = string(v.ToJSON())
+					} else {
+						chunk = v.String()
+					}
+					e.config.StreamCallback(nodeID, chunk, false, "")
+				}
+				e.config.StreamCallback(nodeID, "", true, "")
+			}()
+		}
 	}
 }
 

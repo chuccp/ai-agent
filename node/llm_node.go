@@ -12,6 +12,11 @@ import (
 // LLMFunction LLM函数
 type LLMFunction func(nodeState *State, resources *value.ResourcesValue, systemPrompt, userPrompt string, format out.OutFormat, stream bool, optionsValue *value.OptionsValue) (value.NodeValue, error)
 
+// StreamLLMFunction 流式LLM函数
+// streamValue: 函数负责往里面 Send(chunk)，完成后 Close()
+// 返回值: 流结束后的完整结果
+type StreamLLMFunction func(nodeState *State, resources *value.ResourcesValue, systemPrompt, userPrompt string, format out.OutFormat, streamValue *value.StreamNodeValue, optionsValue *value.OptionsValue) (value.NodeValue, error)
+
 // LLMNode LLM节点
 type LLMNode struct {
 	*BaseNode
@@ -20,6 +25,7 @@ type LLMNode struct {
 	systemTemplate     string
 	userTemplate       string
 	llmFunction        LLMFunction
+	streamLLMFunction  StreamLLMFunction
 	cacheEnabled       bool
 	resourcesValueFrom []*value.ResourcesValueFrom
 	optionsValue       *value.OptionsValue
@@ -58,6 +64,11 @@ func (n *LLMNode) SetUserTemplate(template string) {
 // SetLLMFunction 设置LLM函数
 func (n *LLMNode) SetLLMFunction(fn LLMFunction) {
 	n.llmFunction = fn
+}
+
+// SetStreamLLMFunction 设置流式LLM函数
+func (n *LLMNode) SetStreamLLMFunction(fn StreamLLMFunction) {
+	n.streamLLMFunction = fn
 }
 
 // SetCacheEnabled 设置是否启用缓存
@@ -152,6 +163,26 @@ func (n *LLMNode) Exec(state *State) (value.NodeValue, error) {
 
 	// 执行LLM函数
 	var result value.NodeValue
+	if stream && n.streamLLMFunction != nil {
+		// 流式模式：创建 StreamNodeValue，在 goroutine 中执行
+		streamValue := value.NewStreamNodeValue()
+		go func() {
+			finalResult, err := n.streamLLMFunction(state, resourcesValue, systemPrompt, userPrompt, n.formatOut, streamValue, options)
+			if err != nil {
+				streamValue.Close()
+				return
+			}
+			// 缓存完整结果
+			if cacheEnabled && finalResult != nil && state.IsCacheEnabled() {
+				err := state.SaveCacheLLM(cacheKey, finalResult, systemPrompt, userPrompt, resourcesValue)
+				if err != nil {
+					return
+				}
+			}
+			streamValue.Close()
+		}()
+		return streamValue, nil
+	}
 	if n.llmFunction != nil {
 		result, err = n.llmFunction(state, resourcesValue, systemPrompt, userPrompt, n.formatOut, stream, options)
 		if err != nil {
@@ -234,6 +265,12 @@ func (b *LLMNodeBuilder) LLMFunction(fn LLMFunction) *LLMNodeBuilder {
 	return b
 }
 
+// StreamLLMFunction 设置流式LLM函数
+func (b *LLMNodeBuilder) StreamLLMFunction(fn StreamLLMFunction) *LLMNodeBuilder {
+	b.node.streamLLMFunction = fn
+	return b
+}
+
 // ValuesFrom 设置值来源
 func (b *LLMNodeBuilder) ValuesFrom(valuesFrom ...*value.ValueFrom) *LLMNodeBuilder {
 	b.node.ValuesFrom = append(b.node.ValuesFrom, valuesFrom...)
@@ -243,11 +280,11 @@ func (b *LLMNodeBuilder) ValuesFrom(valuesFrom ...*value.ValueFrom) *LLMNodeBuil
 // ResourcesValueFrom 设置资源值来源
 func (b *LLMNodeBuilder) ResourcesValueFrom(from ...*value.ResourcesValueFrom) *LLMNodeBuilder {
 	b.node.resourcesValueFrom = append(b.node.resourcesValueFrom, from...)
-	for _,v:=range from{
+	for _, v := range from {
 		b.node.ValuesFrom = append(b.node.ValuesFrom, &value.ValueFrom{
-						NodeID: v.NodeID,
-						From:   v.From,
-						Param: v.NodeID+ "_" +v.From,
+			NodeID: v.NodeID,
+			From:   v.From,
+			Param:  v.NodeID + "_" + v.From,
 		})
 	}
 
