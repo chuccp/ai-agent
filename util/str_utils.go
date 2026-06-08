@@ -1,10 +1,14 @@
 package util
 
 import (
+	"bytes"
 	"crypto/md5"
 	"encoding/hex"
+	"regexp"
 	"strings"
+	"text/template"
 
+	"emperror.dev/errors"
 	"github.com/google/uuid"
 )
 
@@ -213,6 +217,7 @@ func Join(sep string, parts ...string) string {
 func Split(s, sep string) []string {
 	return strings.Split(s, sep)
 }
+
 // SplitS 使用多个分隔符分割字符串，依次按每个分隔符进行分割
 func SplitS(s string, sep ...string) []string {
 	if s == "" || len(sep) == 0 {
@@ -303,4 +308,57 @@ func ExtractParagraphList(content string) []string {
 		}
 	}
 	return result
+}
+
+// 匹配 ${variable_name} 或 ${object.field} 格式的正则表达式
+var templateVarRegex = regexp.MustCompile(`\$\{([a-zA-Z_][a-zA-Z0-9_.]*)\}`)
+
+// convertTemplateSyntax 将 ${variable} 格式转换为 Go template 的 {{.variable}} 格式
+func ConvertTemplateSyntax(templateStr string) string {
+	return templateVarRegex.ReplaceAllString(templateStr, "{{.$1}}")
+}
+
+func ExecuteTemplateWithDollarFormat(data map[string]any, templateStr string) (string, error) {
+	if templateStr == "" {
+		return "", nil
+	}
+
+	// 将 ${variable} 格式转换为 {{.variable}} 格式
+	convertedTemplate := ConvertTemplateSyntax(templateStr)
+
+	tmpl, err := template.New("template").Parse(convertedTemplate)
+	if err != nil {
+		return "", err
+	}
+
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, data); err != nil {
+		return "", err
+	}
+
+	result := buf.String()
+
+	// 检查是否仍有未解析的占位符
+	if unresolved := findUnresolvedPlaceholders(result); len(unresolved) > 0 {
+		return "", errors.New("unresolved placeholders found: " + strings.Join(unresolved, ", "))
+	}
+
+	return result, nil
+}
+
+// findUnresolvedPlaceholders 查找未解析的占位符
+func findUnresolvedPlaceholders(text string) []string {
+	var unresolved []string
+
+	// 检查 Go template 格式 {{.variable}} 或 {{ variable }}
+	goTemplateRegex := regexp.MustCompile(`\{\{\.?[a-zA-Z_][a-zA-Z0-9_]*\}\}`)
+	goMatches := goTemplateRegex.FindAllString(text, -1)
+	unresolved = append(unresolved, goMatches...)
+
+	// 检查 <no value> 格式 (Go template 对缺失值的输出)
+	if strings.Contains(text, "<no value>") {
+		unresolved = append(unresolved, "<no value>")
+	}
+
+	return unresolved
 }

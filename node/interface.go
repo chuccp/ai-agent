@@ -57,6 +57,7 @@ type WorkflowContext interface {
 	// CreateChildContext 创建子上下文，用于IFNode等条件节点执行子工作流
 	CreateChildContext(nodes []Node, childRootValue *value.ObjectValue, shareValue *value.ArrayValue, childParentID string) WorkflowContext
 	GetExecutorId() string
+	GetStreamCallback() StreamCallback
 }
 
 // WorkflowInterface 工作流接口

@@ -29,10 +29,6 @@ type OnAfterNodeRun func(state *node.State) error
 // OnFailedNodeRun 节点运行失败回调
 type OnFailedNodeRun func(state *node.State, err error)
 
-// StreamCallback 流式回调，当节点输出为 StreamNodeValue 时调用
-// chunk 是增量文本，done 表示该节点流结束，errMsg 非空表示出错
-type StreamCallback func(nodeId string, chunk string, done bool, errMsg string)
-
 // Config 执行器配置
 type Config struct {
 	RootCachePath        string
@@ -43,7 +39,7 @@ type Config struct {
 	OnBeforeNodeRun      OnBeforeNodeRun
 	OnAfterNodeRun       OnAfterNodeRun
 	OnFailedNodeRun      OnFailedNodeRun
-	StreamCallback       StreamCallback
+	StreamCallback       node.StreamCallback
 	Parameter            *value.ObjectValue
 }
 
@@ -61,17 +57,18 @@ func DefaultConfig(RootCachePath string, RelPath string) *Config {
 
 // Context 工作流上下文
 type Context struct {
-	rootValue    *value.ObjectValue
-	shareValue   *value.ArrayValue
-	nodeValues   map[string]value.NodeValue
-	parentID     string
-	cacheManager *cache.Manager
-	config       *Config
-	mu           sync.Mutex
-	nodeStates   map[string]graph.NodeStatusInterface
-	pool2        *pool2.GOPool
-	executorId   string
-	indexes      []int
+	rootValue      *value.ObjectValue
+	shareValue     *value.ArrayValue
+	nodeValues     map[string]value.NodeValue
+	parentID       string
+	cacheManager   *cache.Manager
+	config         *Config
+	mu             sync.Mutex
+	nodeStates     map[string]graph.NodeStatusInterface
+	pool2          *pool2.GOPool
+	executorId     string
+	indexes        []int
+	streamCallback node.StreamCallback
 }
 
 func NewContext(executorId string, nodes []node.Node, rootValue *value.ObjectValue, config *Config, pool2 *pool2.GOPool) *Context {
@@ -79,8 +76,9 @@ func NewContext(executorId string, nodes []node.Node, rootValue *value.ObjectVal
 		rootValue = value.NewObjectValue()
 	}
 	ctx := &Context{
-		rootValue: rootValue,
-		config:    config,
+		rootValue:      rootValue,
+		config:         config,
+		streamCallback: config.StreamCallback,
 	}
 	if config.RootCachePath != "" && config.RelPath != "" {
 		ctx.cacheManager = cache.NewManager(config.RelPath, true)
@@ -97,6 +95,10 @@ func NewContext(executorId string, nodes []node.Node, rootValue *value.ObjectVal
 
 func (c *Context) GetExecutorId() string {
 	return c.executorId
+}
+
+func (c *Context) GetStreamCallback() node.StreamCallback {
+	return c.streamCallback
 }
 
 func (c *Context) GetPool() *pool2.GOPool {
@@ -118,13 +120,14 @@ func (c *Context) init(nodes []node.Node) {
 // CreateChildContext 创建子上下文
 func (c *Context) CreateChildContext(nodes []node.Node, childRootValue *value.ObjectValue, shareValue *value.ArrayValue, childParentID string) node.WorkflowContext {
 	ctx := &Context{
-		rootValue:    childRootValue,
-		cacheManager: c.cacheManager,
-		parentID:     childParentID,
-		config:       c.config,
-		pool2:        c.pool2,
-		executorId:   c.executorId,
-		indexes:      c.indexes,
+		rootValue:      childRootValue,
+		cacheManager:   c.cacheManager,
+		parentID:       childParentID,
+		config:         c.config,
+		pool2:          c.pool2,
+		executorId:     c.executorId,
+		indexes:        c.indexes,
+		streamCallback: c.streamCallback,
 	}
 	ctx.shareValue = shareValue
 	ctx.init(nodes)
@@ -513,6 +516,7 @@ func (e *NodeExecutor) createAndRunNodeState(n node.Node) (*node.State, error) {
 
 	// 执行节点
 	output, err := n.Exec(state)
+	//憎爱
 
 	if n.GetOutWatchFunc() != nil {
 		if err := n.GetOutWatchFunc()(state, output); err != nil {
@@ -552,26 +556,26 @@ func (e *NodeExecutor) finalizeNodeState(nodeID string, state *node.State) {
 	if state.IsSucceeded() {
 		nodeValue := state.GetNodeValue()
 		e.ctx.AddNodeValue(nodeID, nodeValue)
-		// 桥接 StreamNodeValue 到 StreamCallback
-		if nodeValue != nil && nodeValue.IsStream() && e.config.StreamCallback != nil {
-			streamValue := nodeValue.AsStream()
-			e.wg.Add(1)
-			go func() {
-				defer e.wg.Done()
-				for v := range streamValue.Channel() {
-					chunk := ""
-					if v.IsText() {
-						chunk = v.AsText().Text
-					} else if v.IsObject() {
-						chunk = string(v.ToJSON())
-					} else {
-						chunk = v.String()
-					}
-					e.config.StreamCallback(nodeID, chunk, false, "")
-				}
-				e.config.StreamCallback(nodeID, "", true, "")
-			}()
-		}
+		//// 桥接 StreamNodeValue 到 StreamCallback
+		//if nodeValue != nil && nodeValue.IsStream() && e.config.StreamCallback != nil {
+		//	streamValue := nodeValue.AsStream()
+		//	e.wg.Add(1)
+		//	go func() {
+		//		defer e.wg.Done()
+		//		for v := range streamValue.Channel() {
+		//			chunk := ""
+		//			if v.IsText() {
+		//				chunk = v.AsText().Text
+		//			} else if v.IsObject() {
+		//				chunk = string(v.ToJSON())
+		//			} else {
+		//				chunk = v.String()
+		//			}
+		//			e.config.StreamCallback(nodeID, chunk, false, "")
+		//		}
+		//		e.config.StreamCallback(nodeID, "", true, "")
+		//	}()
+		//}
 	}
 }
 

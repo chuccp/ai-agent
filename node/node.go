@@ -14,6 +14,10 @@ type WatchFunc func(state *State) error
 
 type OutWatchFunc func(state *State, outValue value.NodeValue) error
 
+// StreamCallback 流式回调，当节点输出为 StreamNodeValue 时调用
+// nodeId: 节点ID, chunk: 增量文本, done: 是否流结束, errMsg: 错误信息
+type StreamCallback func(nodeId string, chunk string, done bool, errMsg string)
+
 // BaseNode 基础节点
 type BaseNode struct {
 	ID         string
@@ -173,6 +177,14 @@ func (s *State) GetShareValue() *value.ArrayValue {
 // GetWorkflowContext 获取工作流上下文
 func (s *State) GetWorkflowContext() WorkflowContext {
 	return s.workflowContext
+}
+
+// GetStreamCallback 获取流式回调
+func (s *State) GetStreamCallback() StreamCallback {
+	if s.workflowContext == nil {
+		return nil
+	}
+	return s.workflowContext.GetStreamCallback()
 }
 
 // GetInput 获取输入

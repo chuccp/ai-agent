@@ -280,3 +280,5 @@ func (m *mockWorkflowContext) HasCache(key, nodeID string) bool                 
 func (m *mockWorkflowContext) CreateChildContext(nodes []Node, childRootValue *value.ObjectValue, shareValue *value.ArrayValue, childParentID string) WorkflowContext {
 	return &mockWorkflowContext{rootValue: childRootValue}
 }
+func (m *mockWorkflowContext) GetExecutorId() string              { return "" }
+func (m *mockWorkflowContext) GetStreamCallback() StreamCallback { return nil }

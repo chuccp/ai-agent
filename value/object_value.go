@@ -1,26 +1,15 @@
 package value
 
 import (
-	"bytes"
 	"encoding/json"
 	"log"
-	"regexp"
 	"strings"
 	"sync"
-	"text/template"
 
 	"emperror.dev/errors"
 	"github.com/chuccp/ai-agent/util"
 	"github.com/spf13/cast"
 )
-
-// 匹配 ${variable_name} 格式的正则表达式
-var templateVarRegex = regexp.MustCompile(`\$\{([a-zA-Z_][a-zA-Z0-9_]*)\}`)
-
-// convertTemplateSyntax 将 ${variable} 格式转换为 Go template 的 {{.variable}} 格式
-func convertTemplateSyntax(templateStr string) string {
-	return templateVarRegex.ReplaceAllString(templateStr, "{{.$1}}")
-}
 
 // ObjectValue 对象值
 type ObjectValue struct {
@@ -510,31 +499,12 @@ func ParseStrObjectValue(data string) (*ObjectValue, error) {
 // ExecuteTemplateWithDollarFormat 执行模板，支持 ${variable} 格式自动转换为 {{.variable}} 格式
 // 如果结果中仍包含未解析的占位符，则返回错误
 func (o *ObjectValue) ExecuteTemplateWithDollarFormat(templateStr string) (string, error) {
-	if templateStr == "" {
-		return "", nil
+	data := o.ToMap()
+	dataValue := make(map[string]any)
+	for k, v := range data {
+		dataValue[k] = v
 	}
-
-	// 将 ${variable} 格式转换为 {{.variable}} 格式
-	convertedTemplate := convertTemplateSyntax(templateStr)
-
-	tmpl, err := template.New("template").Parse(convertedTemplate)
-	if err != nil {
-		return "", err
-	}
-
-	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, o.ToMap()); err != nil {
-		return "", err
-	}
-
-	result := buf.String()
-
-	// 检查是否仍有未解析的占位符
-	if unresolved := findUnresolvedPlaceholders(result); len(unresolved) > 0 {
-		return "", errors.New("unresolved placeholders found: " + strings.Join(unresolved, ", "))
-	}
-
-	return result, nil
+	return util.ExecuteTemplateWithDollarFormat(dataValue, templateStr)
 }
 
 func (o *ObjectValue) HasKey(s string) bool {
@@ -542,23 +512,6 @@ func (o *ObjectValue) HasKey(s string) bool {
 	defer o.mu.RUnlock()
 	_, ok := o.data[s]
 	return ok
-}
-
-// findUnresolvedPlaceholders 查找未解析的占位符
-func findUnresolvedPlaceholders(text string) []string {
-	var unresolved []string
-
-	// 检查 Go template 格式 {{.variable}} 或 {{ variable }}
-	goTemplateRegex := regexp.MustCompile(`\{\{\.?[a-zA-Z_][a-zA-Z0-9_]*\}\}`)
-	goMatches := goTemplateRegex.FindAllString(text, -1)
-	unresolved = append(unresolved, goMatches...)
-
-	// 检查 <no value> 格式 (Go template 对缺失值的输出)
-	if strings.Contains(text, "<no value>") {
-		unresolved = append(unresolved, "<no value>")
-	}
-
-	return unresolved
 }
 
 type OptionsValue struct {

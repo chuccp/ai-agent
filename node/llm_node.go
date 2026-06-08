@@ -166,22 +166,60 @@ func (n *LLMNode) Exec(state *State) (value.NodeValue, error) {
 	if stream && n.streamLLMFunction != nil {
 		// 流式模式：创建 StreamNodeValue，在 goroutine 中执行
 		streamValue := value.NewStreamNodeValue()
+
+		// 消费 streamValue 的通道，通过 StreamCallback 转发数据块，防止 streamLLMFunction 因通道满而阻塞
+		go func() {
+			cb := state.GetStreamCallback()
+			for v := range streamValue.Channel() {
+				if cb != nil {
+					chunk := ""
+					if v.IsText() {
+						chunk = v.AsText().Text
+					} else if v.IsObject() {
+						chunk = string(v.ToJSON())
+					} else {
+						chunk = v.String()
+					}
+					cb(n.ID, chunk, false, "")
+				}
+			}
+			if cb != nil {
+				cb(n.ID, "", true, "")
+			}
+		}()
+
+		// 结果通道，用于等待 goroutine 完成后获取最终结果
+		type streamResult struct {
+			result value.NodeValue
+			err   error
+		}
+		resultCh := make(chan streamResult, 1)
+
 		go func() {
 			finalResult, err := n.streamLLMFunction(state, resourcesValue, systemPrompt, userPrompt, n.formatOut, streamValue, options)
 			if err != nil {
 				streamValue.Close()
+				resultCh <- streamResult{nil, err}
 				return
 			}
 			// 缓存完整结果
 			if cacheEnabled && finalResult != nil && state.IsCacheEnabled() {
-				err := state.SaveCacheLLM(cacheKey, finalResult, systemPrompt, userPrompt, resourcesValue)
-				if err != nil {
+				if cacheErr := state.SaveCacheLLM(cacheKey, finalResult, systemPrompt, userPrompt, resourcesValue); cacheErr != nil {
+					streamValue.Close()
+					resultCh <- streamResult{nil, cacheErr}
 					return
 				}
 			}
 			streamValue.Close()
+			resultCh <- streamResult{finalResult, nil}
 		}()
-		return streamValue, nil
+
+		// 等 streamValue 完成后，转成普通 value.NodeValue 返回
+		res := <-resultCh
+		if res.err != nil {
+			return nil, res.err
+		}
+		return res.result, nil
 	}
 	if n.llmFunction != nil {
 		result, err = n.llmFunction(state, resourcesValue, systemPrompt, userPrompt, n.formatOut, stream, options)
