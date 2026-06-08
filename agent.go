@@ -109,7 +109,7 @@ func (w *Workflow) Exec(ctx node.WorkflowContext) (value.NodeValue, error) {
 
 // Execute 实现node.WorkflowInterface接口，用于IFNode等条件节点执行子工作流
 func (w *Workflow) Execute(ctx node.WorkflowContext, input *value.ObjectValue, parentID string) (value.NodeValue, error) {
-	childCtx := ctx.CreateChildContext(w.nodes, input, value.NewArrayValue(), parentID)
+	childCtx := ctx.CreateChildContext(w.nodes, input, value.NewArrayValue(), parentID, -1)
 	return w.Exec(childCtx)
 }
 func (w *Workflow) ExecBatchOrder(ctx node.WorkflowContext, statusGroup *graph.NodeStatusGroup, parentID string, inputs []*value.ObjectValue) (*value.ArrayValue, bool, error) {

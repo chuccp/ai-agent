@@ -118,7 +118,11 @@ func (c *Context) init(nodes []node.Node) {
 }
 
 // CreateChildContext 创建子上下文
-func (c *Context) CreateChildContext(nodes []node.Node, childRootValue *value.ObjectValue, shareValue *value.ArrayValue, childParentID string) node.WorkflowContext {
+func (c *Context) CreateChildContext(nodes []node.Node, childRootValue *value.ObjectValue, shareValue *value.ArrayValue, childParentID string, index int) node.WorkflowContext {
+	indexes := c.indexes
+	if index >= 0 {
+		indexes = append(indexes, index)
+	}
 	ctx := &Context{
 		rootValue:      childRootValue,
 		cacheManager:   c.cacheManager,
@@ -126,8 +130,8 @@ func (c *Context) CreateChildContext(nodes []node.Node, childRootValue *value.Ob
 		config:         c.config,
 		pool2:          c.pool2,
 		executorId:     c.executorId,
-		indexes:        c.indexes,
 		streamCallback: c.streamCallback,
+		indexes:        indexes,
 	}
 	ctx.shareValue = shareValue
 	ctx.init(nodes)
@@ -135,6 +139,9 @@ func (c *Context) CreateChildContext(nodes []node.Node, childRootValue *value.Ob
 }
 func (c *Context) GetShareValue() *value.ArrayValue {
 	return c.shareValue
+}
+func (c *Context) GetIndexes() []int {
+	return c.indexes
 }
 
 // AddNodeValue 添加节点值

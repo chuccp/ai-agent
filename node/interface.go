@@ -55,9 +55,10 @@ type WorkflowContext interface {
 	GetCache(key, nodeID string) (value.NodeValue, error)
 	HasCache(key, nodeID string) bool
 	// CreateChildContext 创建子上下文，用于IFNode等条件节点执行子工作流
-	CreateChildContext(nodes []Node, childRootValue *value.ObjectValue, shareValue *value.ArrayValue, childParentID string) WorkflowContext
+	CreateChildContext(nodes []Node, childRootValue *value.ObjectValue, shareValue *value.ArrayValue, childParentID string, index int) WorkflowContext
 	GetExecutorId() string
 	GetStreamCallback() StreamCallback
+	GetIndexes() []int
 }
 
 // WorkflowInterface 工作流接口

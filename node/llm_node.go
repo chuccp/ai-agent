@@ -13,9 +13,9 @@ import (
 type LLMFunction func(nodeState *State, resources *value.ResourcesValue, systemPrompt, userPrompt string, format out.OutFormat, stream bool, optionsValue *value.OptionsValue) (value.NodeValue, error)
 
 // StreamLLMFunction 流式LLM函数
-// streamValue: 函数负责往里面 Send(chunk)，完成后 Close()
+// cb: 流式回调，函数负责为每个 chunk 调用 cb(nodeId, chunk, false, "")，完成后调用 cb(nodeId, "", true, "")
 // 返回值: 流结束后的完整结果
-type StreamLLMFunction func(nodeState *State, resources *value.ResourcesValue, systemPrompt, userPrompt string, format out.OutFormat, streamValue *value.StreamNodeValue, optionsValue *value.OptionsValue) (value.NodeValue, error)
+type StreamLLMFunction func(nodeState *State, resources *value.ResourcesValue, systemPrompt, userPrompt string, format out.OutFormat, nodeId string, cb StreamCallback, optionsValue *value.OptionsValue) (value.NodeValue, error)
 
 // LLMNode LLM节点
 type LLMNode struct {
@@ -163,64 +163,19 @@ func (n *LLMNode) Exec(state *State) (value.NodeValue, error) {
 
 	// 执行LLM函数
 	var result value.NodeValue
-	if stream && n.streamLLMFunction != nil {
-		// 流式模式：创建 StreamNodeValue，在 goroutine 中执行
-		streamValue := value.NewStreamNodeValue()
-
-		// 消费 streamValue 的通道，通过 StreamCallback 转发数据块，防止 streamLLMFunction 因通道满而阻塞
-		go func() {
+		if stream && n.streamLLMFunction != nil {
+			// 流式模式：直接将 StreamCallback 传给函数，减少链路
 			cb := state.GetStreamCallback()
-			for v := range streamValue.Channel() {
-				if cb != nil {
-					chunk := ""
-					if v.IsText() {
-						chunk = v.AsText().Text
-					} else if v.IsObject() {
-						chunk = string(v.ToJSON())
-					} else {
-						chunk = v.String()
-					}
-					cb(n.ID, chunk, false, "")
-				}
-			}
-			if cb != nil {
-				cb(n.ID, "", true, "")
-			}
-		}()
-
-		// 结果通道，用于等待 goroutine 完成后获取最终结果
-		type streamResult struct {
-			result value.NodeValue
-			err   error
-		}
-		resultCh := make(chan streamResult, 1)
-
-		go func() {
-			finalResult, err := n.streamLLMFunction(state, resourcesValue, systemPrompt, userPrompt, n.formatOut, streamValue, options)
+			finalResult, err := n.streamLLMFunction(state, resourcesValue, systemPrompt, userPrompt, n.formatOut, n.ID, cb, options)
 			if err != nil {
-				streamValue.Close()
-				resultCh <- streamResult{nil, err}
-				return
+				return nil, err
 			}
 			// 缓存完整结果
 			if cacheEnabled && finalResult != nil && state.IsCacheEnabled() {
-				if cacheErr := state.SaveCacheLLM(cacheKey, finalResult, systemPrompt, userPrompt, resourcesValue); cacheErr != nil {
-					streamValue.Close()
-					resultCh <- streamResult{nil, cacheErr}
-					return
-				}
+				state.SaveCacheLLM(cacheKey, finalResult, systemPrompt, userPrompt, resourcesValue)
 			}
-			streamValue.Close()
-			resultCh <- streamResult{finalResult, nil}
-		}()
-
-		// 等 streamValue 完成后，转成普通 value.NodeValue 返回
-		res := <-resultCh
-		if res.err != nil {
-			return nil, res.err
+			return finalResult, nil
 		}
-		return res.result, nil
-	}
 	if n.llmFunction != nil {
 		result, err = n.llmFunction(state, resourcesValue, systemPrompt, userPrompt, n.formatOut, stream, options)
 		if err != nil {

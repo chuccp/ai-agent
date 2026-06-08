@@ -100,7 +100,7 @@ func (e *GroupExecutor) ExecBatch(statusGroup *graph.NodeStatusGroup, inputs []*
 
 func (e *GroupExecutor) executeSingle(index int, input *value.ObjectValue, shareValue *value.ArrayValue) *NodeExecutor {
 	childParentId := e.buildChildParentID(index)
-	childContext := e.parentContext.CreateChildContext(e.nodes, input, shareValue, childParentId).(*Context)
+	childContext := e.parentContext.CreateChildContext(e.nodes, input, shareValue, childParentId, index).(*Context)
 	nodeExecutor := NewNodeExecutor(index, e.nodes, childContext)
 	return nodeExecutor
 }
