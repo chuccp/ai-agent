@@ -310,8 +310,8 @@ func ExtractParagraphList(content string) []string {
 	return result
 }
 
-// 匹配 ${variable_name} 或 ${object.field} 格式的正则表达式
-var templateVarRegex = regexp.MustCompile(`\$\{([a-zA-Z_][a-zA-Z0-9_.]*)\}`)
+// 匹配 ${variable_name} 或 ${object.field} 格式的正则表达式，支持括号内前后有空格如 ${ variable }
+var templateVarRegex = regexp.MustCompile(`\$\{\s*([a-zA-Z_][a-zA-Z0-9_.]*)\s*\}`)
 
 // convertTemplateSyntax 将 ${variable} 格式转换为 Go template 的 {{.variable}} 格式
 func ConvertTemplateSyntax(templateStr string) string {
