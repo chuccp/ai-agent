@@ -358,6 +358,7 @@ func (e *AgentExecutor) Exec(input *value.ObjectValue) (*Response, error) {
 func (e *AgentExecutor) ExecSync(input *value.ObjectValue) *AsyncResult {
 	e.prepareInput(input)
 	var asyncResult = &AsyncResult{}
+	e.asyncCall.status = types.AgentStatusStarted
 	er := e.pool0.WaitGO(func() error {
 		resp, err := e.asyncCall.ExecSync()
 		if err != nil {
@@ -367,6 +368,12 @@ func (e *AgentExecutor) ExecSync(input *value.ObjectValue) *AsyncResult {
 		asyncResult.Error = err
 		return nil
 	})
+	if er != nil {
+		e.asyncCall.status = types.AgentStatusFailed
+	} else {
+		e.asyncCall.status = types.AgentStatusSucceeded
+	}
+
 	if er != nil {
 		asyncResult.Error = er
 	}
@@ -432,6 +439,7 @@ func (e *AgentExecutor) ExecAsync(input *value.ObjectValue) *AsyncResult {
 	var wg = pool.New()
 	errorPool := wg.WithMaxGoroutines(1).WithErrors().WithFirstError()
 	result := &AsyncResult{}
+	e.asyncCall.status = types.AgentStatusStarted
 	errorPool.Go(func() error {
 		resp, err := e.asyncCall.ExecSync()
 		result.Response = resp
@@ -439,6 +447,11 @@ func (e *AgentExecutor) ExecAsync(input *value.ObjectValue) *AsyncResult {
 		return err
 	})
 	err := errorPool.Wait()
+	if err != nil {
+		e.asyncCall.status = types.AgentStatusFailed
+	} else {
+		e.asyncCall.status = types.AgentStatusSucceeded
+	}
 	if err != nil {
 		result.Error = err
 		return nil
@@ -483,23 +496,7 @@ func NewAsyncCall0(agent *Agent, ctx *executor.Context, pool2 *pool2.GOPool) *As
 
 // ExecSync 同步执行
 func (c *AsyncCall) ExecSync() (*Response, error) {
-	c.mu.Lock()
-	c.status = types.AgentStatusStarted
-	c.mu.Unlock()
-
-	c.mu.Lock()
-	c.status = types.AgentStatusRunning
-	c.mu.Unlock()
 	nodeValue, err := c.agent.GetWorkflow().Exec(c.ctx)
-
-	c.mu.Lock()
-	if err != nil {
-		c.status = types.AgentStatusFailed
-	} else {
-		c.status = types.AgentStatusSucceeded
-	}
-	c.mu.Unlock()
-
 	if err != nil {
 		return nil, err
 	}
