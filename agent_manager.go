@@ -112,7 +112,9 @@ func newRunStatus() *RunStatus {
 
 func (s *RunStatus) run(item *AgentExecutor) {
 	s.runTemp(item)
+	s.mu.Lock()
 	s.LastRunTime = time.Now()
+	s.mu.Unlock()
 }
 
 const agentExecutorListMaxSize = 1000
@@ -174,8 +176,10 @@ func (m *AgentManager) ProcessTasks(items []*AgentExecutor, maxConcurrency int, 
 	if len(items) == 0 {
 		return
 	}
+	m.runStatus.mu.Lock()
 	m.runStatus.RunningCountTotal = len(items)
 	m.runStatus.RunTime = time.Now()
+	m.runStatus.mu.Unlock()
 	p := pool.New().WithMaxGoroutines(maxConcurrency)
 	for _, item := range items {
 		p.Go(func() {
