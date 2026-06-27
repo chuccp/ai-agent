@@ -345,8 +345,12 @@ func (e *AgentExecutor) IsDone() bool {
 }
 
 // Exec 执行
-func (e *AgentExecutor) Exec(input *value.ObjectValue) (*Response, error) {
+func (e *AgentExecutor) ExecForInput(input *value.ObjectValue) (*Response, error) {
 	e.prepareInput(input)
+
+	return e.Exec()
+}
+func (e *AgentExecutor) Exec() (*Response, error) {
 	nodeValue, err := e.agent.GetWorkflow().Exec(e.ctx)
 	if err != nil {
 		return nil, err

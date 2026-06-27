@@ -1,7 +1,6 @@
 package ai_agent
 
 import (
-	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -9,6 +8,7 @@ import (
 	"emperror.dev/errors"
 	"github.com/chuccp/ai-agent/executor"
 	"github.com/chuccp/ai-agent/value"
+	"github.com/sourcegraph/conc/pool"
 )
 
 // AgentManager Agent管理器
@@ -16,6 +16,7 @@ type AgentManager struct {
 	agentRegistry    *sync.Map // map[string]*Agent
 	executorRegistry *sync.Map // map[string]*AgentExecutor
 	mu               *sync.RWMutex
+	runStatus        atomic.Value // *RunStatus
 }
 
 func NewAgentManager() *AgentManager {
@@ -24,6 +25,14 @@ func NewAgentManager() *AgentManager {
 		executorRegistry: new(sync.Map),
 		mu:               new(sync.RWMutex),
 	}
+}
+
+// GetRunStatus 获取当前任务运行状态
+func (m *AgentManager) GetRunStatus() *RunStatus {
+	if v := m.runStatus.Load(); v != nil {
+		return v.(*RunStatus)
+	}
+	return nil
 }
 
 // RegisterExecutor 注册执行器
@@ -140,55 +149,31 @@ type RunStatus struct {
 // TaskHandler 任务执行回调
 type TaskHandler[T any] func(item T)
 
-// TaskQueue 泛型任务队列，Process 接收数组和回调，最多 maxConcurrency 个并发。
-type TaskQueue[T any] struct {
-	maxConcurrency int
+// SetRunStatus 设置运行状态
+func (m *AgentManager) SetRunStatus(status *RunStatus) {
+	m.runStatus.Store(status)
 }
 
-// NewTaskQueue 创建任务队列，maxConcurrency 必须 >= 1。
-func NewTaskQueue[T any](maxConcurrency int) *TaskQueue[T] {
-	if maxConcurrency < 1 {
-		panic(fmt.Sprintf("NewTaskQueue: maxConcurrency must be >= 1, got %d", maxConcurrency))
-	}
-	return &TaskQueue[T]{maxConcurrency: maxConcurrency}
-}
-
-// Process 按顺序处理 items 中的所有任务，最多 maxConcurrency 个并发。
-// handler 不能为 nil；阻塞直到所有任务执行完成。
-func (q *TaskQueue[T]) Process(items []T, handler TaskHandler[T]) {
-	if handler == nil {
-		panic("TaskQueue.Process: handler must not be nil")
-	}
+// ProcessTasks 批量并发执行任务，使用 sourcegraph/conc/pool 管理并发，自动追踪 RunStatus。
+func (m *AgentManager) ProcessTasks(items []*AgentExecutor, maxConcurrency int) {
 	if len(items) == 0 {
 		return
 	}
-
-	workers := min(q.maxConcurrency, len(items))
-	ch := make(chan T, workers)
-
-	var wg sync.WaitGroup
-	wg.Add(workers)
-	for range workers {
-		go func() {
-			defer wg.Done()
-			for item := range ch {
-				safeHandleTask(handler, item)
-			}
-		}()
+	if handler == nil {
+		panic("ProcessTasks: handler must not be nil")
 	}
 
+	status.RunningCountTotal = len(items)
+	status.RunningCount.Store(0)
+	status.RunTime = time.Now()
+
+	p := pool.New().WithMaxGoroutines(maxConcurrency)
 	for _, item := range items {
-		ch <- item
+		p.Go(func() {
+			item.Exec()
+			status.RunningCount.Add(1)
+			status.LastRunTime = time.Now()
+		})
 	}
-	close(ch)
-	wg.Wait()
-}
-
-func safeHandleTask[T any](handler TaskHandler[T], item T) {
-	defer func() {
-		if r := recover(); r != nil {
-			_ = fmt.Sprintf("TaskQueue handler panic: %v", r)
-		}
-	}()
-	handler(item)
+	p.Wait()
 }
