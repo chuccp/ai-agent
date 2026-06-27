@@ -1,8 +1,8 @@
 package ai_agent
 
 import (
+	"container/list"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"emperror.dev/errors"
@@ -13,36 +13,22 @@ import (
 
 // AgentManager Agent管理器
 type AgentManager struct {
-	agentRegistry    *sync.Map // map[string]*Agent
-	executorRegistry *sync.Map // map[string]*AgentExecutor
-	mu               *sync.RWMutex
-	runStatus        atomic.Value // *RunStatus
+	agentRegistry *sync.Map // map[string]*Agent
+	mu            *sync.RWMutex
+	runStatus     *RunStatus
 }
 
 func NewAgentManager() *AgentManager {
 	return &AgentManager{
-		agentRegistry:    new(sync.Map),
-		executorRegistry: new(sync.Map),
-		mu:               new(sync.RWMutex),
+		agentRegistry: new(sync.Map),
+		mu:            new(sync.RWMutex),
+		runStatus:     newRunStatus(),
 	}
 }
 
 // GetRunStatus 获取当前任务运行状态
 func (m *AgentManager) GetRunStatus() *RunStatus {
-	if v := m.runStatus.Load(); v != nil {
-		return v.(*RunStatus)
-	}
-	return nil
-}
-
-// RegisterExecutor 注册执行器
-func (m *AgentManager) RegisterExecutor(exec *AgentExecutor) {
-	m.executorRegistry.Store(exec.GetID(), exec)
-}
-
-// UnregisterExecutor 注销执行器
-func (m *AgentManager) UnregisterExecutor(executorId string) {
-	m.executorRegistry.Delete(executorId)
+	return m.runStatus
 }
 
 // RegisterAgent 注册Agent
@@ -79,101 +65,152 @@ func (m *AgentManager) GetAllAgents() []*Agent {
 }
 
 // CreateExecutor 创建执行器
-func (m *AgentManager) CreateExecutor(agentID string, execConfig *executor.Config) (*AgentExecutor, error) {
+func (m *AgentManager) CreateExecutor(agentID string, input *value.ObjectValue, execConfig *executor.Config) (*AgentExecutor, error) {
 	agent, ok := m.GetAgent(agentID)
 	if !ok {
 		return nil, errors.New("Agent not found: " + agentID)
 	}
-	return m.createExecutorForAgent(agent, execConfig)
+	return m.createExecutorForAgent(agent, input, execConfig)
 }
 
 // // CreateExecutorForAgent 为Agent创建执行器
-func (m *AgentManager) createExecutorForAgent(agent *Agent, execConfig *executor.Config) (*AgentExecutor, error) {
+func (m *AgentManager) createExecutorForAgent(agent *Agent, input *value.ObjectValue, execConfig *executor.Config) (*AgentExecutor, error) {
 	exec := NewAgentExecutor(agent, execConfig)
-	m.RegisterExecutor(exec)
+	exec.prepareInput(input)
 	return exec, nil
 }
 func (m *AgentManager) ExecSync(agentExecutor *AgentExecutor, input *value.ObjectValue) *AsyncResult {
-
-	asyncResult := agentExecutor.ExecSync(input)
-
+	asyncResult := agentExecutor.ExecSyncForInput(input)
 	return asyncResult
 }
 
 // CreateExecutorWithID // CreateExecutorWithID 创建带ID的执行器
-func (m *AgentManager) CreateExecutorWithID(executorID string, agent *Agent, execConfig *executor.Config) *AgentExecutor {
+func (m *AgentManager) CreateExecutorWithID(executorID string, agent *Agent, input *value.ObjectValue, execConfig *executor.Config) *AgentExecutor {
 	exec := NewAgentExecutorWithExecutorId(executorID, agent, execConfig)
-	m.RegisterExecutor(exec)
+	exec.prepareInput(input)
 	return exec
-}
-
-// GetExecutor 根据 executorId 获取执行器
-func (m *AgentManager) GetExecutor(executorId string) (*AgentExecutor, bool) {
-	if v, ok := m.executorRegistry.Load(executorId); ok {
-		return v.(*AgentExecutor), true
-	}
-	return nil, false
-}
-
-// GetAllLiveAgentExecutor 获取所有活跃的执行器
-func (m *AgentManager) GetAllLiveAgentExecutor() []*AgentExecutor {
-	var live []*AgentExecutor
-	m.executorRegistry.Range(func(key, value interface{}) bool {
-		exec := value.(*AgentExecutor)
-		if exec.IsRunning() {
-			live = append(live, exec)
-		}
-		return true
-	})
-	return live
-}
-
-// GetAllAgentExecutor 获取所有执行器
-func (m *AgentManager) GetAllAgentExecutor() []*AgentExecutor {
-	var all []*AgentExecutor
-	m.executorRegistry.Range(func(key, value interface{}) bool {
-		all = append(all, value.(*AgentExecutor))
-		return true
-	})
-	return all
 }
 
 // RunStatus 任务队列运行状态
 type RunStatus struct {
-	RunningCountTotal int          // 任务总数
-	RunningCount      atomic.Int64 // 已完成数（原子读写）
-	RunTime           time.Time    // 开始时间
-	LastRunTime       time.Time    // 最后完成时间
+	RunningCountTotal   int       // 任务总数
+	runningCount        int64     // 已完成数
+	RunTime             time.Time // 开始时间
+	LastRunTime         time.Time // 最后完成时间
+	mu                  sync.Mutex
+	agentExecutorMap    map[string]*AgentExecutor
+	allAgentExecutorMap map[string]*AgentExecutor
+	agentExecutorList   list.List
 }
 
-// TaskHandler 任务执行回调
-type TaskHandler[T any] func(item T)
-
-// SetRunStatus 设置运行状态
-func (m *AgentManager) SetRunStatus(status *RunStatus) {
-	m.runStatus.Store(status)
+func newRunStatus() *RunStatus {
+	return &RunStatus{
+		agentExecutorMap:    make(map[string]*AgentExecutor),
+		allAgentExecutorMap: make(map[string]*AgentExecutor),
+	}
 }
 
-// ProcessTasks 批量并发执行任务，使用 sourcegraph/conc/pool 管理并发，自动追踪 RunStatus。
-func (m *AgentManager) ProcessTasks(items []*AgentExecutor, maxConcurrency int) {
+func (s *RunStatus) run(item *AgentExecutor) {
+	s.runTemp(item)
+	s.LastRunTime = time.Now()
+}
+
+const agentExecutorListMaxSize = 1000
+
+func (s *RunStatus) runTemp(item *AgentExecutor) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.agentExecutorMap[item.GetID()] = item
+	s.runningCount++
+
+	s.agentExecutorList.PushFront(item)
+	s.allAgentExecutorMap[item.GetID()] = item
+	for s.agentExecutorList.Len() > agentExecutorListMaxSize {
+		back := s.agentExecutorList.Back()
+		if back != nil {
+			s.agentExecutorList.Remove(back)
+			agentExecutor := back.Value.(*AgentExecutor)
+			delete(s.allAgentExecutorMap, agentExecutor.GetID())
+		}
+	}
+}
+func (s *RunStatus) finish(item *AgentExecutor) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	delete(s.agentExecutorMap, item.GetID())
+	s.runningCount--
+}
+
+func (s *RunStatus) GetExecutor(id string) (*AgentExecutor, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	v, ok := s.allAgentExecutorMap[id]
+	return v, ok
+}
+
+func (s *RunStatus) GetLiveAgentExecutor() []*AgentExecutor {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	executors := make([]*AgentExecutor, 0, len(s.agentExecutorMap))
+	for _, v := range s.agentExecutorMap {
+		executors = append(executors, v)
+	}
+	return executors
+}
+
+func (s *RunStatus) GetRunningCount() int64 {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.runningCount
+}
+
+type TaskCall func(item *AsyncResult)
+
+func (m *AgentManager) ProcessTasks(items []*AgentExecutor, maxConcurrency int, taskCall TaskCall) {
 	if len(items) == 0 {
 		return
 	}
-	if handler == nil {
-		panic("ProcessTasks: handler must not be nil")
-	}
-
-	status.RunningCountTotal = len(items)
-	status.RunningCount.Store(0)
-	status.RunTime = time.Now()
-
+	m.runStatus.RunningCountTotal = len(items)
+	m.runStatus.RunTime = time.Now()
 	p := pool.New().WithMaxGoroutines(maxConcurrency)
 	for _, item := range items {
 		p.Go(func() {
-			item.Exec()
-			status.RunningCount.Add(1)
-			status.LastRunTime = time.Now()
+			m.runStatus.run(item)
+			defer func() {
+				m.runStatus.finish(item)
+			}()
+			asyncResult := item.ExecSync()
+			if taskCall != nil {
+				taskCall(asyncResult)
+			}
 		})
 	}
 	p.Wait()
+}
+func (m *AgentManager) Restart(item *AgentExecutor, taskCall TaskCall) {
+	p := pool.New().WithMaxGoroutines(1)
+	p.Go(func() {
+		m.runStatus.runTemp(item)
+		defer func() {
+			m.runStatus.finish(item)
+		}()
+		asyncResult := item.ExecSync()
+		if taskCall != nil {
+			taskCall(asyncResult)
+		}
+	})
+
+	p.Wait()
+}
+
+func (m *AgentManager) GetExecutor(id string) (*AgentExecutor, bool) {
+	return m.runStatus.GetExecutor(id)
+}
+
+func (m *AgentManager) GetAllLiveAgentExecutor() []*AgentExecutor {
+	return m.runStatus.GetLiveAgentExecutor()
 }

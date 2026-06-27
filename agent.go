@@ -314,11 +314,6 @@ func (e *AgentExecutor) GetCachePath() string {
 	return e.config.RelPath
 }
 
-// SetID 设置ID
-func (e *AgentExecutor) SetID(id string) {
-	e.id = id
-}
-
 // GetAgent 获取代理
 func (e *AgentExecutor) GetAgent() *Agent {
 	return e.agent
@@ -344,24 +339,9 @@ func (e *AgentExecutor) IsDone() bool {
 	return e.asyncCall != nil && e.asyncCall.IsDone()
 }
 
-// Exec 执行
-func (e *AgentExecutor) ExecForInput(input *value.ObjectValue) (*Response, error) {
-	e.prepareInput(input)
-
-	return e.Exec()
-}
-func (e *AgentExecutor) Exec() (*Response, error) {
-	nodeValue, err := e.agent.GetWorkflow().Exec(e.ctx)
-	if err != nil {
-		return nil, err
-	}
-	return NewResponse(nodeValue, true), nil
-}
-
 // ExecSync 同步执行（返回AsyncResult）
-func (e *AgentExecutor) ExecSync(input *value.ObjectValue) *AsyncResult {
-	e.prepareInput(input)
-	var asyncResult = &AsyncResult{}
+func (e *AgentExecutor) ExecSync() *AsyncResult {
+	var asyncResult = &AsyncResult{ExecutorId: e.id}
 	e.asyncCall.status = types.AgentStatusStarted
 	er := e.pool0.WaitGO(func() error {
 		resp, err := e.asyncCall.ExecSync()
@@ -382,6 +362,11 @@ func (e *AgentExecutor) ExecSync(input *value.ObjectValue) *AsyncResult {
 		asyncResult.Error = er
 	}
 	return asyncResult
+}
+
+func (e *AgentExecutor) ExecSyncForInput(input *value.ObjectValue) *AsyncResult {
+	e.prepareInput(input)
+	return e.ExecSync()
 }
 
 // Cancel 取消
@@ -463,19 +448,11 @@ func (e *AgentExecutor) ExecAsync(input *value.ObjectValue) *AsyncResult {
 	return result
 }
 
-// ExecJSON 从JSON执行
-func (e *AgentExecutor) ExecJSON(inputJSON string) (*Response, error) {
-	input, err := value.ParseStrObjectValue(inputJSON)
-	if err != nil {
-		return nil, err
-	}
-	return e.Exec(input)
-}
-
 // AsyncResult 异步结果
 type AsyncResult struct {
-	Response *Response
-	Error    error
+	Response   *Response
+	Error      error
+	ExecutorId string
 }
 
 // AsyncCall 异步调用
