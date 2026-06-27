@@ -119,13 +119,31 @@ func (s *RunStatus) run(item *AgentExecutor) {
 
 const agentExecutorListMaxSize = 1000
 
+func (s *RunStatus) IsRunning(item *AgentExecutor) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	_, ok := s.agentExecutorMap[item.GetID()]
+	return ok
+}
+
+func (s *RunStatus) tryStart(item *AgentExecutor) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, ok := s.agentExecutorMap[item.GetID()]; ok {
+		return false
+	}
+	s.add(item)
+	return true
+}
 func (s *RunStatus) runTemp(item *AgentExecutor) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.add(item)
+}
 
+func (s *RunStatus) add(item *AgentExecutor) {
 	s.agentExecutorMap[item.GetID()] = item
 	s.runningCount++
-
 	s.agentExecutorList.PushFront(item)
 	s.allAgentExecutorMap[item.GetID()] = item
 	for s.agentExecutorList.Len() > agentExecutorListMaxSize {
@@ -195,20 +213,19 @@ func (m *AgentManager) ProcessTasks(items []*AgentExecutor, maxConcurrency int, 
 	}
 	p.Wait()
 }
-func (m *AgentManager) Restart(item *AgentExecutor, taskCall TaskCall) {
-	p := pool.New().WithMaxGoroutines(1)
+func (m *AgentManager) Restart(item *AgentExecutor, taskCall TaskCall) bool {
+	if !m.runStatus.tryStart(item) {
+		return false
+	}
+	p := pool.New()
 	p.Go(func() {
-		m.runStatus.runTemp(item)
-		defer func() {
-			m.runStatus.finish(item)
-		}()
+		defer m.runStatus.finish(item)
 		asyncResult := item.ExecSync()
 		if taskCall != nil {
 			taskCall(asyncResult)
 		}
 	})
-
-	p.Wait()
+	return true
 }
 
 func (m *AgentManager) GetExecutor(id string) (*AgentExecutor, bool) {
