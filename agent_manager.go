@@ -226,6 +226,7 @@ func (m *AgentManager) Restart(item *AgentExecutor, taskCall TaskCall) bool {
 	}
 	p := pool.New()
 	p.Go(func() {
+		m.runStatus.run(item)
 		defer m.runStatus.finish(item)
 		asyncResult := item.ExecSync()
 		if taskCall != nil {
