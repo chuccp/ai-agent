@@ -93,20 +93,20 @@ func (m *AgentManager) CreateExecutorWithID(executorID string, agent *Agent, inp
 
 // RunStatus 任务队列运行状态
 type RunStatus struct {
-	RunningCountTotal   int       // 任务总数
-	runningCount        int64     // 已完成数
-	RunTime             time.Time // 开始时间
-	LastRunTime         time.Time // 最后完成时间
-	mu                  sync.Mutex
-	agentExecutorMap    map[string]*AgentExecutor
-	allAgentExecutorMap map[string]*AgentExecutor
-	agentExecutorList   list.List
+	RunningCountTotal     int       // 任务总数
+	runningCount          int64     // 已完成数
+	RunTime               time.Time // 开始时间
+	LastRunTime           time.Time // 最后完成时间
+	mu                    sync.Mutex
+	agentExecutorMap      map[string]*AgentExecutor
+	allInAgentExecutorMap map[string]*AgentExecutor
+	agentExecutorList     list.List
 }
 
 func newRunStatus() *RunStatus {
 	return &RunStatus{
-		agentExecutorMap:    make(map[string]*AgentExecutor),
-		allAgentExecutorMap: make(map[string]*AgentExecutor),
+		agentExecutorMap:      make(map[string]*AgentExecutor),
+		allInAgentExecutorMap: make(map[string]*AgentExecutor),
 	}
 }
 
@@ -145,20 +145,19 @@ func (s *RunStatus) add(item *AgentExecutor) {
 	s.agentExecutorMap[item.GetID()] = item
 	s.runningCount++
 	s.agentExecutorList.PushFront(item)
-	s.allAgentExecutorMap[item.GetID()] = item
+	s.allInAgentExecutorMap[item.GetID()] = item
 	for s.agentExecutorList.Len() > agentExecutorListMaxSize {
 		back := s.agentExecutorList.Back()
 		if back != nil {
 			s.agentExecutorList.Remove(back)
 			agentExecutor := back.Value.(*AgentExecutor)
-			delete(s.allAgentExecutorMap, agentExecutor.GetID())
+			delete(s.allInAgentExecutorMap, agentExecutor.GetID())
 		}
 	}
 }
 func (s *RunStatus) finish(item *AgentExecutor) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-
 	delete(s.agentExecutorMap, item.GetID())
 	s.runningCount--
 }
@@ -166,8 +165,7 @@ func (s *RunStatus) finish(item *AgentExecutor) {
 func (s *RunStatus) GetExecutor(id string) (*AgentExecutor, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-
-	v, ok := s.allAgentExecutorMap[id]
+	v, ok := s.allInAgentExecutorMap[id]
 	return v, ok
 }
 
