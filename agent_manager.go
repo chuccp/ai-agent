@@ -178,6 +178,11 @@ func (s *RunStatus) GetLiveAgentExecutor() []*AgentExecutor {
 	for _, v := range s.agentExecutorMap {
 		executors = append(executors, v)
 	}
+	if len(executors) == 0 {
+		for _, v := range s.runningCountTotalMap {
+			executors = append(executors, v)
+		}
+	}
 	return executors
 }
 
