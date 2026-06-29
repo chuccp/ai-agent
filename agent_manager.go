@@ -93,7 +93,6 @@ func (m *AgentManager) CreateExecutorWithID(executorID string, agent *Agent, inp
 
 // RunStatus 任务队列运行状态
 type RunStatus struct {
-	Running               bool
 	RunTime               time.Time // 开始时间
 	LastRunTime           time.Time // 最后完成时间
 	mu                    sync.Mutex
@@ -110,7 +109,11 @@ func newRunStatus() *RunStatus {
 		runningCountTotalMap:  make(map[string]*AgentExecutor),
 	}
 }
-
+func (s *RunStatus) Running() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return len(s.agentExecutorMap) > 0
+}
 func (s *RunStatus) run(item *AgentExecutor) {
 	s.runTemp(item)
 	s.mu.Lock()
@@ -209,7 +212,6 @@ func (m *AgentManager) ProcessTasks(items []*AgentExecutor, maxConcurrency int, 
 		m.runStatus.runningCountTotalMap[agent.GetID()] = agent
 	}
 	m.runStatus.RunTime = time.Now()
-	m.runStatus.Running = true
 	m.runStatus.mu.Unlock()
 	p := pool.New().WithMaxGoroutines(maxConcurrency)
 	for _, item := range items {
@@ -223,7 +225,6 @@ func (m *AgentManager) ProcessTasks(items []*AgentExecutor, maxConcurrency int, 
 		})
 	}
 	p.Wait()
-	m.runStatus.Running = false
 }
 func (m *AgentManager) Restart(item *AgentExecutor, taskCall TaskCall) bool {
 	if !m.runStatus.tryStart(item) {
@@ -240,7 +241,9 @@ func (m *AgentManager) Restart(item *AgentExecutor, taskCall TaskCall) bool {
 	})
 	return true
 }
-
+func (m *AgentManager) Running() bool {
+	return m.runStatus.Running()
+}
 func (m *AgentManager) GetExecutor(id string) (*AgentExecutor, bool) {
 	return m.runStatus.GetExecutor(id)
 }
