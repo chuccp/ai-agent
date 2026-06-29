@@ -158,6 +158,7 @@ func (s *RunStatus) add(item *AgentExecutor) {
 func (s *RunStatus) finish(item *AgentExecutor) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.LastRunTime = time.Now()
 	delete(s.agentExecutorMap, item.GetID())
 }
 
