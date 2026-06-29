@@ -210,9 +210,7 @@ func (m *AgentManager) ProcessTasks(items []*AgentExecutor, maxConcurrency int, 
 	for _, item := range items {
 		p.Go(func() {
 			m.runStatus.run(item)
-			defer func() {
-				m.runStatus.finish(item)
-			}()
+			defer m.runStatus.finish(item)
 			asyncResult := item.ExecSync()
 			if taskCall != nil {
 				taskCall(asyncResult)
