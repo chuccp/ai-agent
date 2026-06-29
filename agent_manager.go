@@ -93,11 +93,10 @@ func (m *AgentManager) CreateExecutorWithID(executorID string, agent *Agent, inp
 
 // RunStatus 任务队列运行状态
 type RunStatus struct {
-	RunningCountTotal     int       // 任务总数
-	runningCount          int64     // 已完成数
 	RunTime               time.Time // 开始时间
 	LastRunTime           time.Time // 最后完成时间
 	mu                    sync.Mutex
+	runningCountTotalMap  map[string]*AgentExecutor
 	agentExecutorMap      map[string]*AgentExecutor
 	allInAgentExecutorMap map[string]*AgentExecutor
 	agentExecutorList     list.List
@@ -107,6 +106,7 @@ func newRunStatus() *RunStatus {
 	return &RunStatus{
 		agentExecutorMap:      make(map[string]*AgentExecutor),
 		allInAgentExecutorMap: make(map[string]*AgentExecutor),
+		runningCountTotalMap:  make(map[string]*AgentExecutor),
 	}
 }
 
@@ -143,9 +143,9 @@ func (s *RunStatus) runTemp(item *AgentExecutor) {
 
 func (s *RunStatus) add(item *AgentExecutor) {
 	s.agentExecutorMap[item.GetID()] = item
-	s.runningCount++
 	s.agentExecutorList.PushFront(item)
 	s.allInAgentExecutorMap[item.GetID()] = item
+	s.runningCountTotalMap[item.GetID()] = item
 	for s.agentExecutorList.Len() > agentExecutorListMaxSize {
 		back := s.agentExecutorList.Back()
 		if back != nil {
@@ -159,7 +159,6 @@ func (s *RunStatus) finish(item *AgentExecutor) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	delete(s.agentExecutorMap, item.GetID())
-	s.runningCount--
 }
 
 func (s *RunStatus) GetExecutor(id string) (*AgentExecutor, bool) {
@@ -180,10 +179,15 @@ func (s *RunStatus) GetLiveAgentExecutor() []*AgentExecutor {
 	return executors
 }
 
-func (s *RunStatus) GetRunningCount() int64 {
+func (s *RunStatus) RunningCount() int64 {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.runningCount
+	return int64(len(s.agentExecutorMap))
+}
+func (s *RunStatus) RunningCountTotal() int64 {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return int64(len(s.runningCountTotalMap))
 }
 
 type TaskCall func(item *AsyncResult)
@@ -193,7 +197,10 @@ func (m *AgentManager) ProcessTasks(items []*AgentExecutor, maxConcurrency int, 
 		return
 	}
 	m.runStatus.mu.Lock()
-	m.runStatus.RunningCountTotal = len(items)
+	m.runStatus.runningCountTotalMap = make(map[string]*AgentExecutor)
+	for _, agent := range items {
+		m.runStatus.runningCountTotalMap[agent.GetID()] = agent
+	}
 	m.runStatus.RunTime = time.Now()
 	m.runStatus.mu.Unlock()
 	p := pool.New().WithMaxGoroutines(maxConcurrency)
