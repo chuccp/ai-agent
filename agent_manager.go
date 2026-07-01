@@ -204,6 +204,7 @@ type TaskCall func(item *AsyncResult)
 
 func (m *AgentManager) ProcessTasks(items []*AgentExecutor, maxConcurrency int, taskCall TaskCall) {
 	if len(items) == 0 {
+		m.runStatus.runningCountTotalMap = make(map[string]*AgentExecutor)
 		return
 	}
 	m.runStatus.mu.Lock()
