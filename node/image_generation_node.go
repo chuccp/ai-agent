@@ -10,7 +10,7 @@ import (
 )
 
 // ImageGenerationFunction 图片生成函数
-type ImageGenerationFunction func(state *State, resourcesValue *value.ResourcesValue, userPrompt string, maxNumber int, scale string) (value.NodeValue, error)
+type ImageGenerationFunction func(state *State, nodeValue value.NodeValue, resourcesValue *value.ResourcesValue, userPrompt string, maxNumber int, scale string) (value.NodeValue, error)
 
 // ImageGenerationNode 图片生成节点
 type ImageGenerationNode struct {
@@ -133,7 +133,8 @@ func (n *ImageGenerationNode) Exec(state *State) (value.NodeValue, error) {
 	}
 
 	state.SetStatusType(types.NodeStatusRunning)
-	result, err := n.imageGenerationFunction(state, resourcesValue, userPrompt, maxNumber, scale)
+
+	result, err := n.imageGenerationFunction(state, nodeValue, resourcesValue, userPrompt, maxNumber, scale)
 	log.Println("ImageGenerationNode", "Exec", "result", result, "err", err)
 	if err != nil {
 		state.SetStatusType(types.NodeStatusFailed)
