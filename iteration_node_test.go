@@ -47,14 +47,14 @@ func TestIterationNode(t *testing.T) {
 	}
 	input.Put("items", items)
 
-	response, err := exec.Exec(input)
+	result := exec.ExecSyncForInput(input)
 
-	assert.NoError(t, err)
-	assert.True(t, response.Success)
-	assert.NotNil(t, response.NodeValue)
+	assert.NoError(t, result.Error)
+	assert.True(t, result.Response.Success)
+	assert.NotNil(t, result.Response.NodeValue)
 
-	arrayResult, ok := response.NodeValue.(*value.ArrayValue)
-	assert.True(t, ok, "response is not ArrayValue, got: %T", response.NodeValue)
+	arrayResult, ok := result.Response.NodeValue.(*value.ArrayValue)
+	assert.True(t, ok, "result is not ArrayValue, got: %T", result.Response.NodeValue)
 	assert.Equal(t, 4, arrayResult.Size(), "array size mismatch, got %d", arrayResult.Size())
 
 	// 检查每个结果

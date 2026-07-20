@@ -42,11 +42,11 @@ func TestSimpleWorkflow(t *testing.T) {
 	input := value.NewObjectValue()
 	input.PutString("name", "World")
 
-	response, err := exec.Exec(input)
+	result := exec.ExecSyncForInput(input)
 
-	assert.NoError(t, err)
-	assert.NotNil(t, response)
-	assert.True(t, response.Success)
+	assert.NoError(t, result.Error)
+	assert.NotNil(t, result.Response)
+	assert.True(t, result.Response.Success)
 }
 
 // TestEmptyWorkflow 测试空工作流应该返回错误
@@ -151,11 +151,12 @@ func TestConcurrentExecution(t *testing.T) {
 	exec := NewAgentExecutor(ag, execConfig)
 	input := value.NewObjectValue()
 
-	response, err := exec.Exec(input)
+	result := exec.ExecSyncForInput(input)
 
-	assert.NoError(t, err)
-	assert.True(t, response.Success)
+	assert.NoError(t, result.Error)
+	assert.True(t, result.Response.Success)
 
-	result := int(response.NodeValue.(*value.ObjectValue).GetNumber("sum"))
-	assert.Equal(t, 3, result)
+	response := result.Response
+	sumResult := int(response.NodeValue.(*value.ObjectValue).GetNumber("sum"))
+	assert.Equal(t, 3, sumResult)
 }

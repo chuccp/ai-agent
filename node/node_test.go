@@ -277,8 +277,9 @@ func (m *mockWorkflowContext) GetCache(key, nodeID string) (value.NodeValue, err
 	return nil, nil
 }
 func (m *mockWorkflowContext) HasCache(key, nodeID string) bool                     { return false }
-func (m *mockWorkflowContext) CreateChildContext(nodes []Node, childRootValue *value.ObjectValue, shareValue *value.ArrayValue, childParentID string) WorkflowContext {
+func (m *mockWorkflowContext) CreateChildContext(nodes []Node, childRootValue *value.ObjectValue, shareValue *value.ArrayValue, childParentID string, index int) WorkflowContext {
 	return &mockWorkflowContext{rootValue: childRootValue}
 }
 func (m *mockWorkflowContext) GetExecutorId() string              { return "" }
 func (m *mockWorkflowContext) GetStreamCallback() StreamCallback { return nil }
+func (m *mockWorkflowContext) GetIndexes() []int                 { return nil }

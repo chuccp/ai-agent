@@ -142,9 +142,8 @@ func TestParseObjectValue(t *testing.T) {
 
 func TestParseObjectValueEmptyString(t *testing.T) {
 	obj, err := ParseStrObjectValue("")
-	assert.NoError(t, err)
-	assert.NotNil(t, obj)
-	assert.Equal(t, 0, len(obj.Keys()))
+	assert.Error(t, err)
+	assert.Nil(t, obj)
 }
 
 // --- ObjectValue Template Tests ---

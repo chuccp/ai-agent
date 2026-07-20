@@ -201,7 +201,12 @@ func (a *ArrayValue) ToJSON() json.RawMessage {
 	defer a.mu.RUnlock()
 	arr := make([]json.RawMessage, len(a.values))
 	for i, v := range a.values {
-		arr[i] = v.ToJSON()
+		if v == nil {
+			arr[i] = json.RawMessage("<nil>")
+		} else {
+			arr[i] = v.ToJSON()
+		}
+
 	}
 	data, _ := json.Marshal(arr)
 	return data
