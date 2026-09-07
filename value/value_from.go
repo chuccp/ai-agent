@@ -6,9 +6,10 @@ import (
 
 // ValueFrom 值来源
 type ValueFrom struct {
-	NodeID string `json:"nodeId"`
-	From   string `json:"from"`
-	Param  string `json:"param"`
+	NodeID     string `json:"nodeId"`
+	From       string `json:"from"`
+	Param      string `json:"param"`
+	AllowBlank bool   `json:"allowBlank"`
 }
 
 // NewValueFrom 创建值来源
@@ -45,6 +46,14 @@ func ParseValueFrom(from, param string) *ValueFrom {
 func RootValueFrom(from, param string) *ValueFrom {
 	return NewValueFrom("", from, param)
 }
+
+func RootValueFromAllowBlank(from, param string) *ValueFrom {
+	vf := NewValueFrom("", from, param)
+	vf.AllowBlank = true
+	return vf
+
+}
+
 func RootALLValueFrom() *ValueFrom {
 	return NewValueFrom("", "", "")
 }

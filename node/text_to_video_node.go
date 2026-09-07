@@ -36,7 +36,7 @@ func (n *TextToVideoNode) ParseTextValuesFromWithError(state *State) (*value.Tex
 		return nil, errors.New(n.ID + " textValueFrom is nil")
 	}
 	vf := n.textValueFrom
-	nodeValue, err := state.GetNodeValueFromNodeWithError(vf.NodeID, vf.From)
+	nodeValue, err := state.GetNodeValueFromNodeWithError(vf.NodeID, vf.From, false)
 	if err != nil {
 		return nil, err
 	}

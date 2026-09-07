@@ -77,7 +77,7 @@ func (n *ImageGenerationNode) ParseResourcesValuesFromWithError(state *State) (*
 	}
 
 	for _, vf := range n.resourcesValueFrom {
-		nodeValue, err := state.GetNodeValueFromNodeWithError(vf.NodeID, vf.From)
+		nodeValue, err := state.GetNodeValueFromNodeWithError(vf.NodeID, vf.From, false)
 		if err != nil {
 			return nil, err
 		}

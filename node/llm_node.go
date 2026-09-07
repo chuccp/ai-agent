@@ -88,7 +88,7 @@ func (n *LLMNode) ParseResourcesValuesFrom(state *State) (*value.ResourcesValue,
 		return resourcesValue, nil
 	}
 	for _, vf := range n.resourcesValueFrom {
-		nodeValue, err := state.GetNodeValueFromNodeWithError(vf.NodeID, vf.From)
+		nodeValue, err := state.GetNodeValueFromNodeWithError(vf.NodeID, vf.From, false)
 		if err != nil {
 			return nil, err
 		}
@@ -163,19 +163,19 @@ func (n *LLMNode) Exec(state *State) (value.NodeValue, error) {
 
 	// 执行LLM函数
 	var result value.NodeValue
-		if stream && n.streamLLMFunction != nil {
-			// 流式模式：直接将 StreamCallback 传给函数，减少链路
-			cb := state.GetStreamCallback()
-			finalResult, err := n.streamLLMFunction(state, resourcesValue, systemPrompt, userPrompt, n.formatOut, n.ID, cb, options)
-			if err != nil {
-				return nil, err
-			}
-			// 缓存完整结果
-			if cacheEnabled && finalResult != nil && state.IsCacheEnabled() {
-				state.SaveCacheLLM(cacheKey, finalResult, systemPrompt, userPrompt, resourcesValue)
-			}
-			return finalResult, nil
+	if stream && n.streamLLMFunction != nil {
+		// 流式模式：直接将 StreamCallback 传给函数，减少链路
+		cb := state.GetStreamCallback()
+		finalResult, err := n.streamLLMFunction(state, resourcesValue, systemPrompt, userPrompt, n.formatOut, n.ID, cb, options)
+		if err != nil {
+			return nil, err
 		}
+		// 缓存完整结果
+		if cacheEnabled && finalResult != nil && state.IsCacheEnabled() {
+			state.SaveCacheLLM(cacheKey, finalResult, systemPrompt, userPrompt, resourcesValue)
+		}
+		return finalResult, nil
+	}
 	if n.llmFunction != nil {
 		result, err = n.llmFunction(state, resourcesValue, systemPrompt, userPrompt, n.formatOut, stream, options)
 		if err != nil {

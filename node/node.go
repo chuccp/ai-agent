@@ -330,18 +330,18 @@ func (s *State) HasCache(key string) bool {
 
 // GetNodeValueFromValueFrom 从ValueFrom获取节点值
 func (s *State) GetNodeValueFromValueFrom(vf *value.ValueFrom) (value.NodeValue, error) {
-	return s.GetNodeValueFromNodeWithError(vf.NodeID, vf.From)
+	return s.GetNodeValueFromNodeWithError(vf.NodeID, vf.From, vf.AllowBlank)
 }
 
 // GetNodeValueFromNode 从节点获取值
 func (s *State) GetNodeValueFromNode(nodeID, from string) value.NodeValue {
-	v, _ := s.GetNodeValueFromNodeWithError(nodeID, from)
+	v, _ := s.GetNodeValueFromNodeWithError(nodeID, from, false)
 	return v
 }
 func (s *State) GetNodeValueFromNodeId(nodeID string) value.NodeValue {
 	return s.GetNodeValueFromNode(nodeID, "")
 }
-func (s *State) GetNodeValueFromNodeWithError(nodeID, from string) (value.NodeValue, error) {
+func (s *State) GetNodeValueFromNodeWithError(nodeID, from string, allowBlank bool) (value.NodeValue, error) {
 	var source value.NodeValue
 	if util.IsBlank(nodeID) {
 		source = s.GetRootValue()
@@ -350,6 +350,9 @@ func (s *State) GetNodeValueFromNodeWithError(nodeID, from string) (value.NodeVa
 	}
 
 	if source == nil {
+		if allowBlank {
+			return value.NullValue, nil
+		}
 		return nil, errors.New("Node " + nodeID + " not found")
 	}
 
@@ -357,11 +360,14 @@ func (s *State) GetNodeValueFromNodeWithError(nodeID, from string) (value.NodeVa
 		return source, nil
 	}
 
-	value := source.FindValue(from)
-	if value == nil {
+	val := source.FindValue(from)
+	if val == nil {
+		if allowBlank {
+			return value.NullValue, nil
+		}
 		return nil, errors.New("Node " + nodeID + " From  " + from + " not found")
 	}
-	return value, nil
+	return val, nil
 }
 func (s *State) GetNodeValueFromRootNode(from string) value.NodeValue {
 	var source value.NodeValue = s.GetRootValue()
