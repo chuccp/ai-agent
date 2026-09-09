@@ -20,8 +20,8 @@ type TextToVoiceNode struct {
 	textToVoiceFunction TextToVoiceFunction
 	optionsValue        *value.OptionsValue
 	optionsFrom         []*value.ValueFrom
-	textValueFrom *value.TextValueFrom
-	maxTextLength int
+	textValueFrom       *value.TextValueFrom
+	maxTextLength       int
 }
 
 // NewTextToVoiceNode 创建文字转语音节点
@@ -75,6 +75,9 @@ func (n *TextToVoiceNode) Exec(state *State) (value.NodeValue, error) {
 	options.AddAllIFNULL(n.optionsValue.ObjectValue)
 	options.AddAllIFNULL(optionsFrom0)
 	state.SetStatusType(types.NodeStatusRunning)
+	if n.maxTextLength > 0 {
+		text = util.Substring(text, 0, n.maxTextLength)
+	}
 	result, err := n.textToVoiceFunction(state, text, options)
 
 	log.Println("TextToVoiceNode", "Exec", "result", result, "err", err)
@@ -124,7 +127,7 @@ func (b *TextToVoiceNodeBuilder) TextToVoiceFunction(textToVoiceFunction TextToV
 	b.node.textToVoiceFunction = textToVoiceFunction
 	return b
 }
-func (b *TextToVoiceNodeBuilder)MaxTextLength(maxTextLength int) *TextToVoiceNodeBuilder {
+func (b *TextToVoiceNodeBuilder) MaxTextLength(maxTextLength int) *TextToVoiceNodeBuilder {
 	b.node.maxTextLength = maxTextLength
 	return b
 }
