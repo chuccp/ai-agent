@@ -20,8 +20,8 @@ type TextToVoiceNode struct {
 	textToVoiceFunction TextToVoiceFunction
 	optionsValue        *value.OptionsValue
 	optionsFrom         []*value.ValueFrom
-
 	textValueFrom *value.TextValueFrom
+	maxTextLength int
 }
 
 // NewTextToVoiceNode 创建文字转语音节点
@@ -122,6 +122,10 @@ func (b *TextToVoiceNodeBuilder) TextFrom(textFrom *value.TextValueFrom) *TextTo
 
 func (b *TextToVoiceNodeBuilder) TextToVoiceFunction(textToVoiceFunction TextToVoiceFunction) *TextToVoiceNodeBuilder {
 	b.node.textToVoiceFunction = textToVoiceFunction
+	return b
+}
+func (b *TextToVoiceNodeBuilder)MaxTextLength(maxTextLength int) *TextToVoiceNodeBuilder {
+	b.node.maxTextLength = maxTextLength
 	return b
 }
 
