@@ -76,7 +76,10 @@ func (n *TextToVoiceNode) Exec(state *State) (value.NodeValue, error) {
 	options.AddAllIFNULL(optionsFrom0)
 	state.SetStatusType(types.NodeStatusRunning)
 	if n.maxTextLength > 0 {
-		text = util.Substring(text, 0, n.maxTextLength)
+		// 按字符（rune）截断，避免按字节截断把多字节字符切成无效 UTF-8
+		if runes := []rune(text); len(runes) > n.maxTextLength {
+			text = string(runes[:n.maxTextLength])
+		}
 	}
 	result, err := n.textToVoiceFunction(state, text, options)
 
